@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
 
-// GET /api/blog - Get all published blog posts
+// GET /api/blog - Get blog posts
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);

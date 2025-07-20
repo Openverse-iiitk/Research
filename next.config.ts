@@ -1,11 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Static export configuration
-  output: 'export',
-  trailingSlash: true,
-  distDir: 'out',
-  
   // Disable ESLint during build
   eslint: {
     ignoreDuringBuilds: true,
@@ -25,14 +20,12 @@ const nextConfig: NextConfig = {
     return config;
   },
   
-  // Disable server-side features for static export
+  // Enable experimental features
   experimental: {
     esmExternals: true,
   },
-  
+
   images: {
-    // For static export, we need to disable the default Image Optimization API
-    unoptimized: true,
     // Allow external image domains
     remotePatterns: [
       {
