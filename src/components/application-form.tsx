@@ -95,7 +95,7 @@ const ApplicationFormContent: React.FC = () => {
       const skillsArray = formData.skills.split(',').map(skill => skill.trim()).filter(skill => skill.length > 0);
 
       // Create application
-      const success = createApplication({
+      const application = createApplication({
         studentEmail: user?.email || formData.email,
         studentName: formData.name,
         studentPhone: formData.phone,
@@ -108,7 +108,7 @@ const ApplicationFormContent: React.FC = () => {
         resumeFile: formData.resume || undefined
       });
 
-      if (success) {
+      if (application && application.id) {
         setSubmitted(true);
       } else {
         throw new Error('Failed to submit application. Please try again.');

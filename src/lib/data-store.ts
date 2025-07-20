@@ -1,5 +1,6 @@
 // Mock database simulation using localStorage
 // In a real app, this would be replaced with actual API calls
+import { supabase } from './supabase';
 
 export interface TeacherPost {
   id: string;
@@ -123,7 +124,7 @@ export const getPostsByTeacher = (teacherEmail: string): TeacherPost[] => {
   return getAllPosts().filter(post => post.authorEmail === teacherEmail);
 };
 
-export const createPost = (post: Omit<TeacherPost, 'id' | 'createdDate' | 'applications' | 'views'>): TeacherPost => {
+export const createPost = async (post: Omit<TeacherPost, 'id' | 'createdDate' | 'applications' | 'views'>): Promise<TeacherPost> => {
   initializeData();
   const posts = getAllPosts();
   const newPost: TeacherPost = {
@@ -133,8 +134,63 @@ export const createPost = (post: Omit<TeacherPost, 'id' | 'createdDate' | 'appli
     applications: [],
     views: 0
   };
+  
+  // Save to localStorage for local compatibility
   posts.push(newPost);
   localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
+  
+  // Also save to Supabase database
+  try {
+    console.log('Saving post to Supabase:', newPost);
+    
+    // Get the author's user ID from Supabase
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('email', newPost.authorEmail)
+      .single();
+    
+    if (userError) {
+      console.error('Error finding user for post:', userError);
+      // Continue without author_id
+    }
+    
+    const { data, error } = await supabase
+      .from('projects')
+      .insert({
+        title: newPost.title,
+        description: newPost.description,
+        requirements: newPost.requirements,
+        duration: newPost.duration,
+        location: newPost.location,
+        max_students: newPost.maxStudents,
+        status: newPost.status,
+        author_id: userData?.id, // May be null if user lookup failed
+        author_email: newPost.authorEmail,
+        author_name: newPost.authorName,
+        department: newPost.department,
+        deadline: newPost.deadline,
+        stipend: newPost.stipend,
+        views: newPost.views
+      })
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error saving post to Supabase:', error);
+      // Continue with localStorage version
+    } else {
+      console.log('Post saved to Supabase successfully:', data);
+      // Update the local post with the Supabase ID
+      newPost.id = data.id;
+      const updatedPosts = posts.map(p => p.id === Date.now().toString() ? newPost : p);
+      localStorage.setItem(POSTS_KEY, JSON.stringify(updatedPosts));
+    }
+  } catch (error) {
+    console.error('Exception saving post to Supabase:', error);
+    // Continue with localStorage version
+  }
+  
   return newPost;
 };
 
