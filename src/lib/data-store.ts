@@ -53,6 +53,11 @@ const USERS_KEY = 'users_data';
 
 // Initialize with some sample data if not exists
 const initializeData = () => {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return; // Don't initialize on server-side
+  }
+  
   if (!localStorage.getItem(POSTS_KEY)) {
     const samplePosts: TeacherPost[] = [
       {
@@ -111,6 +116,11 @@ const initializeData = () => {
 
 // Posts management
 export const getAllPosts = (): TeacherPost[] => {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return []; // Return empty array on server-side
+  }
+  
   initializeData();
   const posts = localStorage.getItem(POSTS_KEY);
   return posts ? JSON.parse(posts) : [];
@@ -120,8 +130,66 @@ export const getActiveStudentPosts = (): TeacherPost[] => {
   return getAllPosts().filter(post => post.status === 'active');
 };
 
-export const getPostsByTeacher = (teacherEmail: string): TeacherPost[] => {
-  return getAllPosts().filter(post => post.authorEmail === teacherEmail);
+export const getPostsByTeacher = async (teacherEmail: string): Promise<TeacherPost[]> => {
+  // First get posts from localStorage
+  const localPosts = getAllPosts().filter(post => 
+    post.authorEmail.toLowerCase() === teacherEmail.toLowerCase()
+  );
+  
+  // Also fetch from Supabase database
+  try {
+    const { data: supabasePosts, error } = await supabase
+      .from('projects')
+      .select('*')
+      .eq('author_email', teacherEmail);
+    
+    if (error) {
+      console.error('Error fetching posts from Supabase:', error);
+      // Return only localStorage posts if database fails
+      return localPosts;
+    }
+    
+    // Convert Supabase posts to TeacherPost format
+    const convertedPosts: TeacherPost[] = supabasePosts.map((project: any) => ({
+      id: project.id.toString(),
+      title: project.title,
+      description: project.description,
+      requirements: project.requirements || [],
+      duration: project.duration,
+      location: project.location,
+      maxStudents: project.max_students,
+      status: project.status,
+      createdDate: project.created_at,
+      authorEmail: project.author_email,
+      authorName: project.author_name,
+      department: project.department,
+      deadline: project.deadline,
+      stipend: project.stipend,
+      applications: [], // Will be loaded separately if needed
+      views: project.views || 0
+    }));
+    
+    // Merge localStorage and database posts, removing duplicates
+    const allPosts = [...localPosts];
+    
+    convertedPosts.forEach(dbPost => {
+      // Check if this post already exists in localStorage (by title and author)
+      const existsInLocal = localPosts.some(localPost => 
+        localPost.title === dbPost.title && 
+        localPost.authorEmail.toLowerCase() === dbPost.authorEmail.toLowerCase()
+      );
+      
+      if (!existsInLocal) {
+        allPosts.push(dbPost);
+      }
+    });
+    
+    return allPosts;
+    
+  } catch (error) {
+    console.error('Error in getPostsByTeacher:', error);
+    return localPosts;
+  }
 };
 
 export const createPost = async (post: Omit<TeacherPost, 'id' | 'createdDate' | 'applications' | 'views'>): Promise<TeacherPost> => {
@@ -224,6 +292,11 @@ export const incrementPostViews = (postId: string): void => {
 
 // Applications management
 export const getAllApplications = (): StudentApplication[] => {
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    return []; // Return empty array on server-side
+  }
+  
   initializeData();
   const applications = localStorage.getItem(APPLICATIONS_KEY);
   return applications ? JSON.parse(applications) : [];
@@ -237,9 +310,9 @@ export const getApplicationsByProject = (projectId: string): StudentApplication[
   return getAllApplications().filter(app => app.projectId === projectId);
 };
 
-export const getApplicationsByTeacher = (teacherEmail: string): StudentApplication[] => {
-  const teacherPosts = getPostsByTeacher(teacherEmail);
-  const postIds = teacherPosts.map(post => post.id);
+export const getApplicationsByTeacher = async (teacherEmail: string): Promise<StudentApplication[]> => {
+  const teacherPosts = await getPostsByTeacher(teacherEmail);
+  const postIds = teacherPosts.map((post: TeacherPost) => post.id);
   return getAllApplications().filter(app => postIds.includes(app.projectId));
 };
 
@@ -396,7 +469,16 @@ export const validatePDFFile = (file: File): { isValid: boolean; error?: string 
 
 // Sync authenticated user to localStorage
 export const syncUserToLocalStorage = (authUser: any) => {
-  if (!authUser) return;
+  if (!authUser || !authUser.email) {
+    console.log('Invalid authUser data, skipping sync:', authUser);
+    return;
+  }
+  
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+    console.log('localStorage not available, skipping sync');
+    return;
+  }
   
   initializeData();
   const users = localStorage.getItem(USERS_KEY);
@@ -409,7 +491,7 @@ export const syncUserToLocalStorage = (authUser: any) => {
     email: authUser.email,
     role: authUser.role || 'student',
     name: authUser.name || authUser.username || 'User',
-    phone: authUser.phone,
+    phone: authUser.phone || undefined,
     department: authUser.department || 'Unknown Department'
   };
   

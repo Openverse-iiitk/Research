@@ -59,8 +59,18 @@ export default function MyPosts() {
 
     // Load teacher's posts
     if (user?.email) {
-      const teacherPosts = getPostsByTeacher(user.email);
-      setPosts(teacherPosts);
+      const loadPosts = async () => {
+        try {
+          const teacherPosts = await getPostsByTeacher(user.email);
+          console.log('Loaded teacher posts:', teacherPosts);
+          setPosts(teacherPosts);
+        } catch (error) {
+          console.error('Error loading teacher posts:', error);
+          setPosts([]);
+        }
+      };
+      
+      loadPosts();
     }
   }, [isLoggedIn, user, router]);
 

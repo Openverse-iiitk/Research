@@ -74,18 +74,28 @@ function ApplicationsContent() {
     }
 
     // Load applications for the teacher
-    if (user?.email) {
-      const teacherApplications = getApplicationsByTeacher(user.email);
-      setApplications(teacherApplications);
-      
-      // Filter by specific post if postId is provided
-      if (postId) {
-        const filtered = teacherApplications.filter(app => app.projectId === postId);
-        setFilteredApplications(filtered);
-      } else {
-        setFilteredApplications(teacherApplications);
+    const loadApplications = async () => {
+      if (user?.email) {
+        try {
+          const teacherApplications = await getApplicationsByTeacher(user.email);
+          setApplications(teacherApplications);
+          
+          // Filter by specific post if postId is provided
+          if (postId) {
+            const filtered = teacherApplications.filter(app => app.projectId === postId);
+            setFilteredApplications(filtered);
+          } else {
+            setFilteredApplications(teacherApplications);
+          }
+        } catch (error) {
+          console.error('Error loading applications:', error);
+          setApplications([]);
+          setFilteredApplications([]);
+        }
       }
-    }
+    };
+
+    loadApplications();
   }, [isLoggedIn, user, router, postId]);
 
   const handleStatusUpdate = (applicationId: string, newStatus: 'accepted' | 'rejected') => {

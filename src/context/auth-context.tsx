@@ -47,14 +47,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     // Get initial session
     const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        console.log('Initial session check:', session ? 'Session found' : 'No session');
+        setSession(session);
+        
+        if (session?.user) {
+          console.log('Fetching user profile for session user:', session.user.email);
+          await fetchUserProfile(session.user.id);
+        } else {
+          console.log('No session user, clearing user state');
+          setUser(null);
+        }
+      } catch (error) {
+        console.error('Error getting initial session:', error);
+        setSession(null);
+        setUser(null);
+      } finally {
+        setIsLoading(false);
       }
-      
-      setIsLoading(false);
     };
 
     getInitialSession();
@@ -62,15 +73,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state change:', event, session ? 'Session exists' : 'No session');
         setSession(session);
         
         if (session?.user) {
+          console.log('Auth change: Fetching user profile for:', session.user.email);
           await fetchUserProfile(session.user.id);
         } else {
+          console.log('Auth change: No user, clearing state');
           setUser(null);
         }
         
-        setIsLoading(false);
+        // Only set loading to false if we're not in the middle of initial load
+        if (!isLoading) {
+          setIsLoading(false);
+        }
       }
     );
 
@@ -111,6 +128,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (authError || !authUser?.user?.email) {
         console.error('Error getting auth user:', authError);
+        // Don't clear session if we just can't get user profile
+        // The session might still be valid
         return;
       }
 
@@ -133,6 +152,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           await createUserFromAuth(authUser.user);
           return;
         }
+        
+        // For other errors, create a basic user object from auth data
+        console.log('Database error, creating basic user from auth data');
+        const basicUser: CustomUser = {
+          id: authUser.user.id,
+          email: authUser.user.email,
+          username: authUser.user.email.split('@')[0],
+          role: 'student', // Default role
+          name: authUser.user.user_metadata?.full_name || authUser.user.email.split('@')[0],
+          department: 'Unknown',
+          phone: undefined,
+          profile_image_url: undefined,
+          email_verified: Boolean(authUser.user.email_confirmed_at),
+          is_active: true
+        };
+        setUser(basicUser);
+        syncUserToLocalStorage(basicUser);
         return;
       }
 
@@ -157,6 +193,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
+      // Don't clear the session on profile fetch errors
+      // The authentication might still be valid
     }
   };
 

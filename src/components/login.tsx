@@ -168,6 +168,13 @@ export const LoginPage: React.FC = () => {
     setLoginError("");
     setResetMessage("");
 
+    // Set a timeout to prevent infinite loading
+    const loginTimeout = setTimeout(() => {
+      console.log('Login timeout reached, stopping loading');
+      setIsLoading(false);
+      setLoginError("Login is taking too long. Please check your connection and try again.");
+    }, 15000); // 15 second timeout
+
     try {
       let result;
       
@@ -177,10 +184,19 @@ export const LoginPage: React.FC = () => {
         result = await signInWithEmail(formState.email, formState.password);
       }
       
+      // Clear the timeout since we got a result
+      clearTimeout(loginTimeout);
+      
       if (result.success) {
         // Don't set loading to false immediately - let auth context handle the redirect
         console.log('Login successful, waiting for auth context to handle redirect');
-        // The loading state will be cleared when the component unmounts during redirect
+        
+        // Set a backup timeout in case auth context doesn't redirect
+        setTimeout(() => {
+          console.log('Auth context redirect timeout, manually stopping loading');
+          setIsLoading(false);
+        }, 5000); // 5 second backup timeout
+        
         return;
       } else {
         setLoginError(result.error || "Invalid credentials. Please try again.");
@@ -188,6 +204,7 @@ export const LoginPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Login error:', error);
+      clearTimeout(loginTimeout);
       setLoginError("An unexpected error occurred. Please try again.");
       setIsLoading(false);
     }
