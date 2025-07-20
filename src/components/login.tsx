@@ -92,9 +92,18 @@ export const LoginPage: React.FC = () => {
   const [isResetting, setIsResetting] = useState(false);
   const [loginMode, setLoginMode] = useState<'username' | 'email'>('username');
   
-  const { signInWithPassword, signInWithEmail, signInWithGoogle, resetPassword } = useAuth();
+  const { signInWithPassword, signInWithEmail, signInWithGoogle, resetPassword, isLoggedIn, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // Handle successful login redirect
+  React.useEffect(() => {
+    if (isLoggedIn && user && isLoading) {
+      // User successfully logged in, redirect will be handled by auth context
+      console.log('User logged in successfully:', user.email, 'role:', user.role);
+      setIsLoading(false);
+    }
+  }, [isLoggedIn, user, isLoading]);
 
   // Check for errors from OAuth callback
   React.useEffect(() => {
@@ -159,22 +168,29 @@ export const LoginPage: React.FC = () => {
     setLoginError("");
     setResetMessage("");
 
-    let result;
-    
-    if (loginMode === 'username') {
-      result = await signInWithPassword(formState.username, formState.password);
-    } else {
-      result = await signInWithEmail(formState.email, formState.password);
+    try {
+      let result;
+      
+      if (loginMode === 'username') {
+        result = await signInWithPassword(formState.username, formState.password);
+      } else {
+        result = await signInWithEmail(formState.email, formState.password);
+      }
+      
+      if (result.success) {
+        // Don't set loading to false immediately - let auth context handle the redirect
+        console.log('Login successful, waiting for auth context to handle redirect');
+        // The loading state will be cleared when the component unmounts during redirect
+        return;
+      } else {
+        setLoginError(result.error || "Invalid credentials. Please try again.");
+        setIsLoading(false);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setLoginError("An unexpected error occurred. Please try again.");
+      setIsLoading(false);
     }
-    
-    if (result.success) {
-      // Auth context will handle redirect based on user role
-      console.log('Login successful, auth context will handle redirect');
-    } else {
-      setLoginError(result.error || "Invalid credentials. Please try again.");
-    }
-    
-    setIsLoading(false);
   };
 
   const handleForgotPassword = async () => {

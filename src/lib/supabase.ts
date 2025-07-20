@@ -12,7 +12,15 @@ if (!supabaseAnonKey) {
 }
 
 // Client for browser use (with RLS)
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+    storageKey: 'sb-auth-token',
+    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+  },
+});
 
 // Admin client for server-side operations (bypasses RLS)
 // Only create this on the server side
