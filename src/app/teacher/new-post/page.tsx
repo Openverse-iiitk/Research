@@ -5,7 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, X, Save, Eye } from "lucide-react";
 import { useEffect } from "react";
-import { createPost, getUser } from "@/lib/data-store";
+import { createPost } from "@/lib/data-store";
 
 interface NewPostForm {
   title: string;
@@ -71,10 +71,9 @@ export default function NewPost() {
     setIsSubmitting(true);
     
     try {
-      // Get current user data
-      const userData = getUser(user?.email || '');
-      if (!userData) {
-        throw new Error('User not found');
+      // Get current user data from auth context
+      if (!user) {
+        throw new Error('User not found - please log in');
       }
 
       // Create deadline 30 days from now if not provided
@@ -91,8 +90,8 @@ export default function NewPost() {
         maxStudents: formData.maxStudents,
         status: status,
         authorEmail: user?.email || '',
-        authorName: userData.name,
-        department: userData.department || 'Unknown Department',
+        authorName: user?.name || user?.username || 'Unknown Author',
+        department: user?.department || 'Unknown Department',
         deadline: deadline.toISOString().split('T')[0],
         stipend: undefined // Can be added later
       });

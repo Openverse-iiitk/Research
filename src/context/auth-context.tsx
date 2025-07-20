@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, isValidEmailDomain, validateEmailDomain } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { syncUserToLocalStorage } from "@/lib/data-store";
 
 type UserRole = 'student' | 'teacher' | 'admin';
 
@@ -76,21 +77,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => subscription.unsubscribe();
   }, []);
 
+  // Handle post-login redirects based on user role
+  useEffect(() => {
+    if (!isLoading && user && session) {
+      const currentPath = window.location.pathname;
+      
+      // Only redirect if user is currently on login or register page
+      if (currentPath === '/login' || currentPath === '/register') {
+        const redirectPath = getRedirectPath(user.role);
+        console.log(`Redirecting ${user.role} user to ${redirectPath}`);
+        router.push(redirectPath);
+      }
+    }
+  }, [user, session, isLoading, router]);
+
+  const getRedirectPath = (role: UserRole): string => {
+    switch (role) {
+      case 'teacher':
+        return '/teacher';
+      case 'student':
+        return '/'; // Students go to main page with opportunities
+      case 'admin':
+        return '/teacher'; // Admins can access teacher dashboard
+      default:
+        return '/';
+    }
+  };
+
   const fetchUserProfile = async (userId: string) => {
     try {
+      // First, get the email from Supabase Auth
+      const { data: authUser, error: authError } = await supabase.auth.getUser();
+      
+      if (authError || !authUser?.user?.email) {
+        console.error('Error getting auth user:', authError);
+        return;
+      }
+
+      console.log('Looking up user profile for:', authUser.user.email, 'with auth ID:', userId);
+
+      // Try to find user by email first (more reliable)
       const { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('id', userId)
+        .eq('email', authUser.user.email)
         .single();
 
       if (error) {
-        console.error('Error fetching user profile:', error);
+        console.error('Error fetching user profile by email:', error);
+        console.log('User email:', authUser.user.email);
+        
+        // If user doesn't exist in custom table, create them
+        if (error.code === 'PGRST116') {
+          console.log('User not found in custom table, creating...');
+          await createUserFromAuth(authUser.user);
+          return;
+        }
         return;
       }
 
       if (data) {
-        setUser({
+        console.log('User profile found:', data);
+        const userData = {
           id: data.id,
           email: data.email,
           username: data.username,
@@ -101,10 +149,89 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           profile_image_url: data.profile_image_url,
           email_verified: data.email_verified,
           is_active: data.is_active
-        });
+        };
+        setUser(userData);
+        
+        // Sync to localStorage for compatibility with data-store
+        syncUserToLocalStorage(userData);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
+    }
+  };
+
+  const createUserFromAuth = async (authUser: any) => {
+    try {
+      console.log('Creating user from auth:', authUser.email);
+      
+      // Check if this is one of our test users
+      let userData: any = {
+        id: authUser.id,
+        email: authUser.email,
+        username: authUser.email?.split('@')[0] || 'user',
+        name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+        role: 'student',
+        department: 'Computer Science',
+        email_verified: Boolean(authUser.email_confirmed_at),
+        is_active: true
+      };
+
+      // Match with existing test users
+      if (authUser.email === 'student.test@iiitkottayam.ac.in') {
+        userData = {
+          ...userData,
+          username: 'teststudent',
+          name: 'Test Student',
+          role: 'student'
+        };
+      } else if (authUser.email === 'teacher.test@iiitkottayam.ac.in') {
+        userData = {
+          ...userData,
+          username: 'testteacher',
+          name: 'Dr. Test Teacher',
+          role: 'teacher'
+        };
+      } else if (authUser.email === 'admin.test@iiitkottayam.ac.in') {
+        userData = {
+          ...userData,
+          username: 'testadmin',
+          name: 'Test Admin',
+          role: 'admin'
+        };
+      }
+
+      const { data, error } = await supabase
+        .from('users')
+        .insert(userData)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error creating user:', error);
+        return;
+      }
+
+      if (data) {
+        console.log('User created successfully:', data);
+        const userData = {
+          id: data.id,
+          email: data.email,
+          username: data.username,
+          role: data.role,
+          name: data.name,
+          department: data.department,
+          phone: data.phone,
+          profile_image_url: data.profile_image_url,
+          email_verified: data.email_verified,
+          is_active: data.is_active
+        };
+        setUser(userData);
+        
+        // Sync to localStorage for compatibility with data-store
+        syncUserToLocalStorage(userData);
+      }
+    } catch (error) {
+      console.error('Error in createUserFromAuth:', error);
     }
   };
 

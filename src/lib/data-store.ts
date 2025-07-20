@@ -83,18 +83,25 @@ const initializeData = () => {
   if (!localStorage.getItem(USERS_KEY)) {
     const sampleUsers: User[] = [
       {
-        email: 'admin',
+        email: 'student.test@iiitkottayam.ac.in',
         role: 'student',
-        name: 'John Doe',
+        name: 'Test Student',
         phone: '+91 9876543210',
-        department: 'Computer Science & Engineering'
+        department: 'Computer Science'
       },
       {
-        email: 'teacher',
+        email: 'teacher.test@iiitkottayam.ac.in',
         role: 'teacher',
-        name: 'Dr. Sarah Johnson',
+        name: 'Dr. Test Teacher',
         phone: '+91 9876543211',
-        department: 'Computer Science & Engineering'
+        department: 'Computer Science'
+      },
+      {
+        email: 'admin.test@iiitkottayam.ac.in',
+        role: 'teacher', // Admins can act as teachers
+        name: 'Test Admin',
+        phone: '+91 9876543212',
+        department: 'Administration'
       }
     ];
     localStorage.setItem(USERS_KEY, JSON.stringify(sampleUsers));
@@ -260,6 +267,37 @@ export const validatePDFFile = (file: File): { isValid: boolean; error?: string 
   }
   
   return { isValid: true };
+};
+
+// Sync authenticated user to localStorage
+export const syncUserToLocalStorage = (authUser: any) => {
+  if (!authUser) return;
+  
+  initializeData();
+  const users = localStorage.getItem(USERS_KEY);
+  const parsedUsers: User[] = users ? JSON.parse(users) : [];
+  
+  // Check if user already exists
+  const existingUserIndex = parsedUsers.findIndex(user => user.email === authUser.email);
+  
+  const userData: User = {
+    email: authUser.email,
+    role: authUser.role || 'student',
+    name: authUser.name || authUser.username || 'User',
+    phone: authUser.phone,
+    department: authUser.department || 'Unknown Department'
+  };
+  
+  if (existingUserIndex !== -1) {
+    // Update existing user
+    parsedUsers[existingUserIndex] = userData;
+  } else {
+    // Add new user
+    parsedUsers.push(userData);
+  }
+  
+  localStorage.setItem(USERS_KEY, JSON.stringify(parsedUsers));
+  console.log('User synced to localStorage:', userData);
 };
 
 // Convert File to base64 for storage (in real app, upload to cloud storage)

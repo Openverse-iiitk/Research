@@ -169,7 +169,7 @@ export const LoginPage: React.FC = () => {
     
     if (result.success) {
       // Auth context will handle redirect based on user role
-      router.refresh();
+      console.log('Login successful, auth context will handle redirect');
     } else {
       setLoginError(result.error || "Invalid credentials. Please try again.");
     }
