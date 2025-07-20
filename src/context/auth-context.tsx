@@ -106,10 +106,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async (): Promise<{ success: boolean; error?: string; needsSetup?: boolean }> => {
     try {
+      // Get the proper redirect URL based on environment
+      const getRedirectURL = () => {
+        // Use the configured app URL or window origin as fallback
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
+        return `${appUrl}/auth/callback`;
+      };
+
+      const redirectTo = getRedirectURL();
+      console.log('OAuth redirect URL:', redirectTo);
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

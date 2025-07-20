@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { User, Lock, Users, Building2 } from "lucide-react";
 
 export default function AuthSetup() {
-  const { session, setupUsernamePassword, isLoading } = useAuth();
+  const { session, user, setupUsernamePassword, isLoading } = useAuth();
   const router = useRouter();
   
   const [formData, setFormData] = useState({
@@ -22,11 +22,24 @@ export default function AuthSetup() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Redirect if not authenticated or already has profile
+    // Redirect if not authenticated
     if (!isLoading && !session) {
       router.push('/login');
     }
   }, [session, isLoading, router]);
+
+  // Pre-fill form with existing user data if available
+  useEffect(() => {
+    if (user && session) {
+      setFormData(prev => ({
+        ...prev,
+        name: user.name || session.user.user_metadata?.full_name || session.user.user_metadata?.name || '',
+        role: (user.role === 'teacher' ? 'teacher' : 'student') as 'student' | 'teacher',
+        department: user.department || '',
+        username: user.username || ''
+      }));
+    }
+  }, [user, session]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
