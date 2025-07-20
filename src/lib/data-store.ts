@@ -243,11 +243,11 @@ export const getApplicationsByTeacher = (teacherEmail: string): StudentApplicati
   return getAllApplications().filter(app => postIds.includes(app.projectId));
 };
 
-export const createApplication = (application: Omit<StudentApplication, 'id' | 'appliedDate' | 'status'>): StudentApplication => {
+export const createApplication = async (application: Omit<StudentApplication, 'id' | 'appliedDate' | 'status'>): Promise<StudentApplication> => {
   initializeData();
-  const applications = getAllApplications();
   
-  // Check if student already applied to this project
+  // Check if student already applied to this project (localStorage check)
+  const applications = getAllApplications();
   const existingApp = applications.find(app => 
     app.studentEmail === application.studentEmail && app.projectId === application.projectId
   );
@@ -256,26 +256,95 @@ export const createApplication = (application: Omit<StudentApplication, 'id' | '
     throw new Error('You have already applied to this project');
   }
 
-  // Handle file storage - File objects can't be serialized to JSON
-  // In a real application, files would be uploaded to a server
-  // For demo purposes, we'll store the filename and note the limitation
-  const processedApplication = { ...application };
-  if (processedApplication.resumeFile) {
-    processedApplication.resumeFileName = processedApplication.resumeFile.name;
-    // Note: File object will be lost during localStorage serialization
-    // In production, this would be uploaded to a server and we'd store the URL
+  try {
+    // First, get the user ID and project details from Supabase for database insertion
+    const { data: userData } = await supabase
+      .from('users')
+      .select('id, name, phone')
+      .eq('email', application.studentEmail)
+      .single();
+
+    const { data: projectData } = await supabase
+      .from('projects')
+      .select('id, title, author_id, author_email')
+      .eq('id', application.projectId)
+      .single();
+
+    if (!userData || !projectData) {
+      throw new Error('User or project not found');
+    }
+
+    // Handle file storage - File objects can't be serialized to JSON
+    // In a real application, files would be uploaded to a server
+    // For demo purposes, we'll store the filename and note the limitation
+    const processedApplication = { ...application };
+    if (processedApplication.resumeFile) {
+      processedApplication.resumeFileName = processedApplication.resumeFile.name;
+      // Note: File object will be lost during localStorage serialization
+      // In production, this would be uploaded to a server and we'd store the URL
+    }
+
+    // Prepare data for Supabase
+    const dbApplicationData = {
+      student_id: userData.id,
+      student_email: application.studentEmail,
+      student_name: application.studentName,
+      student_phone: application.studentPhone,
+      student_year: application.year,
+      student_gpa: application.gpa,
+      project_id: application.projectId,
+      project_title: application.projectTitle,
+      teacher_id: projectData.author_id,
+      teacher_email: projectData.author_email,
+      cover_letter: application.coverLetter,
+      skills: application.skills,
+      resume_url: null, // Will be updated when file upload is implemented
+      status: 'pending' as const
+    };
+
+    // Save to Supabase database
+    const { data: dbApplication, error } = await supabase
+      .from('applications')
+      .insert(dbApplicationData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error saving application to database:', error);
+      throw new Error('Failed to submit application to database');
+    }
+
+    // Create the application object for localStorage (keeping the original format)
+    const newApplication: StudentApplication = {
+      ...processedApplication,
+      id: dbApplication.id, // Use the UUID from database
+      appliedDate: new Date().toISOString().split('T')[0],
+      status: 'pending'
+    };
+    
+    // Also save to localStorage for backwards compatibility
+    applications.push(newApplication);
+    localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(applications));
+    
+    return newApplication;
+    
+  } catch (error) {
+    console.error('Error creating application:', error);
+    
+    // Fallback to localStorage only if database operation fails
+    const fallbackApplication: StudentApplication = {
+      ...application,
+      id: Date.now().toString(),
+      appliedDate: new Date().toISOString().split('T')[0],
+      status: 'pending'
+    };
+    
+    applications.push(fallbackApplication);
+    localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(applications));
+    
+    // Re-throw the error so the UI can handle it
+    throw error;
   }
-  
-  const newApplication: StudentApplication = {
-    ...processedApplication,
-    id: Date.now().toString(),
-    appliedDate: new Date().toISOString().split('T')[0],
-    status: 'pending'
-  };
-  
-  applications.push(newApplication);
-  localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(applications));
-  return newApplication;
 };
 
 export const updateApplicationStatus = (applicationId: string, status: 'pending' | 'accepted' | 'rejected'): StudentApplication | null => {

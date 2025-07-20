@@ -95,7 +95,7 @@ const ApplicationFormContent: React.FC = () => {
       const skillsArray = formData.skills.split(',').map(skill => skill.trim()).filter(skill => skill.length > 0);
 
       // Create application
-      const application = createApplication({
+      const application = await createApplication({
         studentEmail: user?.email || formData.email,
         studentName: formData.name,
         studentPhone: formData.phone,
