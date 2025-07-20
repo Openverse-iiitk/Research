@@ -120,6 +120,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const redirectTo = getRedirectURL();
       console.log('OAuth redirect URL:', redirectTo);
+      console.log('Current URL:', window.location.href);
+      console.log('OAuth flow starting...');
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -134,9 +136,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
+        console.error('OAuth initiation error:', error);
         throw error;
       }
 
+      console.log('OAuth initiation successful, redirecting to Google...');
       return { success: true };
     } catch (error: any) {
       console.error('Google sign-in error:', error);

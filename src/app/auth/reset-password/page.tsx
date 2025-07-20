@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, ArrowRight, AlertCircle, CheckCircle, Key } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -66,7 +66,7 @@ const PasswordInput: React.FC<PasswordInputProps> = ({
   );
 };
 
-const ResetPasswordPage: React.FC = () => {
+const ResetPasswordContent: React.FC = () => {
   const [formState, setFormState] = useState({
     newPassword: "",
     confirmPassword: "",
@@ -306,6 +306,22 @@ const ResetPasswordPage: React.FC = () => {
         </div>
       </div>
     </div>
+  );
+};
+
+// Loading component for Suspense fallback
+const ResetPasswordLoading = () => (
+  <div className="min-h-screen bg-black flex items-center justify-center">
+    <div className="text-white">Loading...</div>
+  </div>
+);
+
+// Main component that wraps ResetPasswordContent with Suspense
+const ResetPasswordPage: React.FC = () => {
+  return (
+    <Suspense fallback={<ResetPasswordLoading />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 };
 

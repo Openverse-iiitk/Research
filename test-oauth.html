@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OAuth Test</title>
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <h1>OAuth Test</h1>
+    <button onclick="testOAuth()">Test Google OAuth</button>
+    <div id="result"></div>
+
+    <script>
+        const supabaseUrl = 'https://qzamtnoroftvwwckjvkk.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6YW10bm9yb2Z0dnd3Y2tqdmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5ODYzMTQsImV4cCI6MjA2ODU2MjMxNH0.fZbE9TtXxJrw61iMjcXItpV3rSynQB7I60RmMzJH-H0';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+
+        async function testOAuth() {
+            console.log('Testing OAuth with redirect URL:', window.location.origin + '/auth/callback');
+            const result = document.getElementById('result');
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithOAuth({
+                    provider: 'google',
+                    options: {
+                        redirectTo: window.location.origin + '/auth/callback',
+                        queryParams: {
+                            access_type: 'offline',
+                            prompt: 'consent',
+                            hd: 'iiitkottayam.ac.in'
+                        }
+                    }
+                });
+
+                if (error) {
+                    result.innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+                    console.error('OAuth error:', error);
+                } else {
+                    result.innerHTML = '<p style="color: green;">OAuth initiated successfully</p>';
+                    console.log('OAuth data:', data);
+                }
+            } catch (err) {
+                result.innerHTML = '<p style="color: red;">Exception: ' + err.message + '</p>';
+                console.error('OAuth exception:', err);
+            }
+        }
+    </script>
+</body>
+</html>
