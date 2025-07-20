@@ -91,11 +91,32 @@ export const LoginPage: React.FC = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Check for domain error from OAuth callback
+  // Check for errors from OAuth callback
   React.useEffect(() => {
     const error = searchParams.get('error');
-    if (error === 'invalid_domain') {
-      setLoginError('Only @iiitkottayam.ac.in email addresses are allowed.');
+    const details = searchParams.get('details');
+    const email = searchParams.get('email');
+    
+    if (error) {
+      switch (error) {
+        case 'invalid_domain':
+          setLoginError(`Only @iiitkottayam.ac.in email addresses are allowed. ${email ? `You tried to login with: ${email}` : ''}`);
+          break;
+        case 'auth_failed':
+          setLoginError(`Authentication failed: ${details || 'Unknown error'}`);
+          break;
+        case 'db_error':
+          setLoginError(`Database error: ${details || 'Unable to access user data'}`);
+          break;
+        case 'unexpected':
+          setLoginError(`Unexpected error: ${details || 'Please try again'}`);
+          break;
+        case 'no_code':
+          setLoginError('Authentication code missing. Please try again.');
+          break;
+        default:
+          setLoginError(`Authentication error: ${error}`);
+      }
     }
   }, [searchParams]);
 
