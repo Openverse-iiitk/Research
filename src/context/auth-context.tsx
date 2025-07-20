@@ -26,6 +26,10 @@ interface AuthContextType {
   isLoading: boolean;
   signInWithGoogle: () => Promise<{ success: boolean; error?: string; needsSetup?: boolean }>;
   signInWithPassword: (username: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signInWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signUpWithEmail: (email: string, password: string, name: string, role: UserRole, department?: string) => Promise<{ success: boolean; error?: string; needsConfirmation?: boolean }>;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  updatePassword: (password: string) => Promise<{ success: boolean; error?: string }>;
   setupUsernamePassword: (username: string, password: string, name: string, role: UserRole, department?: string) => Promise<{ success: boolean; error?: string }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<CustomUser>) => Promise<{ success: boolean; error?: string }>;
@@ -108,9 +112,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Get the proper redirect URL based on environment
       const getRedirectURL = () => {
-        // Use the configured app URL or window origin as fallback
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || window.location.origin;
-        return `${appUrl}/auth/callback`;
+        // Always use the current window location for the redirect URL
+        // This ensures it works in both dev and prod environments
+        const { origin } = window.location;
+        return `${origin}/auth/callback`;
       };
 
       const redirectTo = getRedirectURL();
@@ -170,6 +175,145 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { 
         success: false, 
         error: error.message || 'Failed to sign in' 
+      };
+    }
+  };
+
+  const signInWithEmail = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Validate email domain
+      const domainError = validateEmailDomain(email);
+      if (domainError) {
+        return { success: false, error: domainError };
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Email sign-in error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to sign in' 
+      };
+    }
+  };
+
+  const signUpWithEmail = async (
+    email: string, 
+    password: string, 
+    name: string, 
+    role: UserRole, 
+    department?: string
+  ): Promise<{ success: boolean; error?: string; needsConfirmation?: boolean }> => {
+    try {
+      // Validate email domain
+      const domainError = validateEmailDomain(email);
+      if (domainError) {
+        return { success: false, error: domainError };
+      }
+
+      // Get the proper redirect URL based on environment
+      const getRedirectURL = () => {
+        const { origin } = window.location;
+        return `${origin}/auth/callback`;
+      };
+
+      const redirectTo = getRedirectURL();
+
+      // Sign up with email confirmation
+      const { data, error } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          emailRedirectTo: redirectTo,
+          data: {
+            name: name,
+            role: role,
+            department: department,
+          }
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.user && !data.session) {
+        // Email confirmation required
+        return { 
+          success: true, 
+          needsConfirmation: true 
+        };
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Email sign-up error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to sign up' 
+      };
+    }
+  };
+
+  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Validate email domain
+      const domainError = validateEmailDomain(email);
+      if (domainError) {
+        return { success: false, error: domainError };
+      }
+
+      // Get the proper redirect URL for password reset
+      const getRedirectURL = () => {
+        const { origin } = window.location;
+        return `${origin}/auth/reset-password`;
+      };
+
+      const redirectTo = getRedirectURL();
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectTo,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Password reset error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to reset password' 
+      };
+    }
+  };
+
+  const updatePassword = async (password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: password
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { success: true };
+    } catch (error: any) {
+      console.error('Password update error:', error);
+      return { 
+        success: false, 
+        error: error.message || 'Failed to update password' 
       };
     }
   };
@@ -290,6 +434,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isLoading,
     signInWithGoogle,
     signInWithPassword,
+    signInWithEmail,
+    signUpWithEmail,
+    resetPassword,
+    updatePassword,
     setupUsernamePassword,
     signOut,
     updateProfile

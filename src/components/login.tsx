@@ -1,10 +1,11 @@
 "use client";
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Lock, ArrowRight, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, Lock, ArrowRight, AlertCircle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 interface PasswordInputProps {
   name: string;
@@ -81,13 +82,17 @@ const PasswordInput: React.FC<PasswordInputProps> = ({ name, onInput, className,
 export const LoginPage: React.FC = () => {
   const [formState, setFormState] = useState({
     username: "",
+    email: "",
     password: "",
   });
   const [loginError, setLoginError] = useState("");
+  const [resetMessage, setResetMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [loginMode, setLoginMode] = useState<'username' | 'email'>('username');
   
-  const { signInWithPassword, signInWithGoogle } = useAuth();
+  const { signInWithPassword, signInWithEmail, signInWithGoogle, resetPassword } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -96,6 +101,17 @@ export const LoginPage: React.FC = () => {
     const error = searchParams.get('error');
     const details = searchParams.get('details');
     const email = searchParams.get('email');
+    const message = searchParams.get('message');
+    
+    if (message) {
+      switch (message) {
+        case 'password_reset_success':
+          setResetMessage('Password updated successfully! You can now sign in with your new password.');
+          break;
+        default:
+          setResetMessage(message);
+      }
+    }
     
     if (error) {
       switch (error) {
@@ -114,6 +130,9 @@ export const LoginPage: React.FC = () => {
         case 'no_code':
           setLoginError('Authentication code missing. Please try again.');
           break;
+        case 'oauth_error':
+          setLoginError(`OAuth error: ${details || 'Please try again'}`);
+          break;
         default:
           setLoginError(`Authentication error: ${error}`);
       }
@@ -129,14 +148,24 @@ export const LoginPage: React.FC = () => {
     if (loginError) {
       setLoginError("");
     }
+    if (resetMessage) {
+      setResetMessage("");
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setLoginError("");
+    setResetMessage("");
 
-    const result = await signInWithPassword(formState.username, formState.password);
+    let result;
+    
+    if (loginMode === 'username') {
+      result = await signInWithPassword(formState.username, formState.password);
+    } else {
+      result = await signInWithEmail(formState.email, formState.password);
+    }
     
     if (result.success) {
       // Auth context will handle redirect based on user role
@@ -146,6 +175,32 @@ export const LoginPage: React.FC = () => {
     }
     
     setIsLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (loginMode === 'username') {
+      setLoginError("Please switch to email mode to reset your password.");
+      return;
+    }
+
+    if (!formState.email) {
+      setLoginError("Please enter your email address first.");
+      return;
+    }
+
+    setIsResetting(true);
+    setLoginError("");
+    setResetMessage("");
+
+    const result = await resetPassword(formState.email);
+    
+    if (result.success) {
+      setResetMessage(`Password reset link sent to ${formState.email}. Please check your inbox.`);
+    } else {
+      setLoginError(result.error || "Failed to send reset email. Please try again.");
+    }
+    
+    setIsResetting(false);
   };
 
   const handleGoogleSignIn = async (e: React.MouseEvent) => {
@@ -242,40 +297,112 @@ export const LoginPage: React.FC = () => {
           </h3>
           
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {/* Username Input */}
-            <div className="password-control relative mb-6">
-              <input
-                type="text"
-                value={formState.username}
-                onChange={(e) => handleInput("username", e.target.value)}
-                required
-                disabled={isLoading || isGoogleLoading}
-                className="w-full bg-transparent border-0 outline-none text-white/96 text-lg pl-12 pr-4 py-0 transition-all duration-300 peer disabled:opacity-50"
-                style={{ height: "72px" }}
-              />
-              <label className="absolute top-1/2 left-8 -translate-y-1/2 text-neutral-400 pointer-events-none capitalize transition-all duration-400 peer-focus:text-cyan-400 peer-valid:text-cyan-400 peer-focus:-translate-x-9 peer-focus:-translate-y-11 peer-focus:scale-87 peer-valid:-translate-x-9 peer-valid:-translate-y-11 peer-valid:scale-87">
-                username
-              </label>
-              <div className="absolute top-1/2 left-0 -translate-y-1/2 text-neutral-400 text-xl pointer-events-none transition-all duration-300">
-                @
-              </div>
-              <div className="absolute left-0 right-0 bottom-0 w-full h-0.5 rounded-sm bg-white/6">
-                <div className="absolute inset-0 rounded-inherit bg-cyan-400 scale-x-0 opacity-0 transition-all duration-300 peer-focus:scale-x-100 peer-focus:opacity-100" />
-              </div>
+            {/* Login Mode Toggle */}
+            <div className="flex bg-white/5 rounded-xl p-1 mb-6">
+              <button
+                type="button"
+                onClick={() => setLoginMode('username')}
+                className={cn(
+                  "flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200",
+                  loginMode === 'username'
+                    ? "bg-cyan-600 text-white shadow-md"
+                    : "text-white/70 hover:text-white"
+                )}
+              >
+                Username
+              </button>
+              <button
+                type="button"
+                onClick={() => setLoginMode('email')}
+                className={cn(
+                  "flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-all duration-200",
+                  loginMode === 'email'
+                    ? "bg-cyan-600 text-white shadow-md"
+                    : "text-white/70 hover:text-white"
+                )}
+              >
+                Email
+              </button>
             </div>
+
+            {/* Username or Email Input */}
+            {loginMode === 'username' ? (
+              <div className="password-control relative mb-6">
+                <input
+                  type="text"
+                  value={formState.username}
+                  onChange={(e) => handleInput("username", e.target.value)}
+                  required
+                  disabled={isLoading || isGoogleLoading}
+                  className="w-full bg-transparent border-0 outline-none text-white/96 text-lg pl-12 pr-4 py-0 transition-all duration-300 peer disabled:opacity-50"
+                  style={{ height: "72px" }}
+                />
+                <label className="absolute top-1/2 left-8 -translate-y-1/2 text-neutral-400 pointer-events-none capitalize transition-all duration-400 peer-focus:text-cyan-400 peer-valid:text-cyan-400 peer-focus:-translate-x-9 peer-focus:-translate-y-11 peer-focus:scale-87 peer-valid:-translate-x-9 peer-valid:-translate-y-11 peer-valid:scale-87">
+                  username
+                </label>
+                <div className="absolute top-1/2 left-0 -translate-y-1/2 text-neutral-400 text-xl pointer-events-none transition-all duration-300">
+                  @
+                </div>
+                <div className="absolute left-0 right-0 bottom-0 w-full h-0.5 rounded-sm bg-white/6">
+                  <div className="absolute inset-0 rounded-inherit bg-cyan-400 scale-x-0 opacity-0 transition-all duration-300 peer-focus:scale-x-100 peer-focus:opacity-100" />
+                </div>
+              </div>
+            ) : (
+              <div className="password-control relative mb-6">
+                <input
+                  type="email"
+                  value={formState.email}
+                  onChange={(e) => handleInput("email", e.target.value)}
+                  required
+                  disabled={isLoading || isGoogleLoading}
+                  placeholder="name@iiitkottayam.ac.in"
+                  className="w-full bg-transparent border-0 outline-none text-white/96 text-lg pl-12 pr-4 py-0 transition-all duration-300 peer disabled:opacity-50"
+                  style={{ height: "72px" }}
+                />
+                <label className="absolute top-1/2 left-8 -translate-y-1/2 text-neutral-400 pointer-events-none capitalize transition-all duration-400 peer-focus:text-cyan-400 peer-valid:text-cyan-400 peer-focus:-translate-x-9 peer-focus:-translate-y-11 peer-focus:scale-87 peer-valid:-translate-x-9 peer-valid:-translate-y-11 peer-valid:scale-87">
+                  email
+                </label>
+                <div className="absolute top-1/2 left-0 -translate-y-1/2 text-neutral-400 text-xl pointer-events-none transition-all duration-300">
+                  @
+                </div>
+                <div className="absolute left-0 right-0 bottom-0 w-full h-0.5 rounded-sm bg-white/6">
+                  <div className="absolute inset-0 rounded-inherit bg-cyan-400 scale-x-0 opacity-0 transition-all duration-300 peer-focus:scale-x-100 peer-focus:opacity-100" />
+                </div>
+              </div>
+            )}
 
             {/* Password Input */}
             <PasswordInput name="password" onInput={handleInput} disabled={isLoading || isGoogleLoading} />
 
             {/* Forgot Password Button */}
             <div className="flex justify-end mb-2">
-              <a
-                href="/auth/reset-password/"
-                className="text-cyan-400 hover:underline text-sm font-medium"
-              >
-                Forgot Password?
-              </a>
+              {loginMode === 'email' ? (
+                <button
+                  type="button"
+                  onClick={handleForgotPassword}
+                  disabled={isResetting || !formState.email}
+                  className="text-cyan-400 hover:underline text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isResetting ? "Sending..." : "Forgot Password?"}
+                </button>
+              ) : (
+                <p className="text-neutral-500 text-sm">
+                  Switch to email mode to reset password
+                </p>
+              )}
             </div>
+
+            {/* Success Message */}
+            {resetMessage && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-green-400 text-sm mb-4 p-3 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center gap-2"
+              >
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{resetMessage}</span>
+              </motion.div>
+            )}
 
             {/* Error Message */}
             {loginError && (
@@ -292,7 +419,11 @@ export const LoginPage: React.FC = () => {
             {/* Submit Button */}
             <motion.button
               type="submit"
-              disabled={!formState.username.length || !formState.password.length || isLoading || isGoogleLoading}
+              disabled={
+                (loginMode === 'username' && (!formState.username.length || !formState.password.length)) ||
+                (loginMode === 'email' && (!formState.email.length || !formState.password.length)) ||
+                isLoading || isGoogleLoading
+              }
               whileHover={{ scale: isLoading || isGoogleLoading ? 1 : 1.02 }}
               whileTap={{ scale: isLoading || isGoogleLoading ? 1 : 0.98 }}
               className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-lg rounded-xl border-0 outline-none cursor-pointer transition-all duration-300 flex items-center justify-between px-6 tracking-wide shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40"
@@ -346,6 +477,19 @@ export const LoginPage: React.FC = () => {
             {/* Domain Notice */}
             <div className="mt-4 text-center text-neutral-500 text-xs">
               <p>Google sign-in is restricted to @iiitkottayam.ac.in emails</p>
+            </div>
+
+            {/* Sign Up Link */}
+            <div className="mt-6 text-center">
+              <p className="text-white/60 text-sm">
+                Don't have an account?{" "}
+                <Link
+                  href="/register"
+                  className="text-cyan-400 hover:text-cyan-300 transition-colors duration-200 font-medium"
+                >
+                  Sign up here
+                </Link>
+              </p>
             </div>
           </form>
         </motion.div>

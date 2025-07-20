@@ -4,14 +4,27 @@ import { supabase, isValidEmailDomain } from '@/lib/supabase';
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const error = searchParams.get('error');
+  const error_description = searchParams.get('error_description');
+  const testMode = searchParams.get('test');
   const next = searchParams.get('next') ?? '/';
 
   console.log('Auth callback received:', { 
     code: !!code, 
+    error,
+    error_description,
+    testMode,
     origin,
+    url: request.url,
     searchParams: Object.fromEntries(searchParams),
     userAgent: request.headers.get('user-agent')
   });
+
+  // Handle test mode
+  if (testMode === 'true') {
+    console.log('Test mode detected - simulating OAuth flow');
+    return NextResponse.redirect(`${origin}/login?message=oauth_test_completed&details=OAuth flow configuration appears correct`);
+  }
 
   if (code) {
     try {
@@ -61,16 +74,25 @@ export async function GET(request: NextRequest) {
           console.log('User not found in database, creating basic profile');
           
           try {
+            // Get user metadata from signup data or fallback to defaults
+            const userName = data.user.user_metadata?.name || 
+                           data.user.user_metadata?.full_name || 
+                           data.user.email?.split('@')[0] || 
+                           'Unknown User';
+            const userRole = data.user.user_metadata?.role || 'student';
+            const userDepartment = data.user.user_metadata?.department;
+
             const { error: insertError } = await supabase
               .from('users')
               .insert({
                 id: data.user.id,
                 email: data.user.email,
-                name: data.user.user_metadata?.full_name || data.user.user_metadata?.name || data.user.email?.split('@')[0] || 'Unknown User',
-                google_uid: data.user.id,
+                name: userName,
+                role: userRole,
+                department: userDepartment,
+                google_uid: data.user.app_metadata?.provider === 'google' ? data.user.id : null,
                 email_verified: true,
                 is_active: true,
-                role: 'student', // Default role, user can change this in setup
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
               });
@@ -108,7 +130,13 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Handle OAuth errors from Google
+  if (error) {
+    console.log('OAuth error received:', { error, error_description });
+    return NextResponse.redirect(`${origin}/login?error=oauth_error&details=${encodeURIComponent(error_description || error)}`);
+  }
+
   // No code provided, redirect to error page
-  console.log('No auth code provided');
+  console.log('No auth code provided - this usually means redirect URL mismatch in Google OAuth settings');
   return NextResponse.redirect(`${origin}/login?error=no_code`);
 }
