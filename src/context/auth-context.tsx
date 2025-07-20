@@ -7,6 +7,12 @@ import { syncUserToLocalStorage } from "@/lib/data-store";
 
 // Helper function to get the correct URL for different environments
 const getURL = () => {
+  // In the browser, always use the current domain to prevent redirecting to build URLs
+  if (typeof window !== 'undefined') {
+    return window.location.origin + '/';
+  }
+  
+  // For server-side rendering, use environment variables
   let url =
     process?.env?.NEXT_PUBLIC_SITE_URL ?? // Set this to your site URL in production
     process?.env?.NEXT_PUBLIC_VERCEL_URL ?? // Automatically set by Vercel
