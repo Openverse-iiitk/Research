@@ -14,21 +14,23 @@
         const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF6YW10bm9yb2Z0dnd3Y2tqdmtrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI5ODYzMTQsImV4cCI6MjA2ODU2MjMxNH0.fZbE9TtXxJrw61iMjcXItpV3rSynQB7I60RmMzJH-H0';
         const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
+        // Helper function to get the correct URL for different environments
+        const getURL = () => {
+            let url = window.location.origin + '/';
+            return url;
+        };
+
         async function testOAuth() {
-            console.log('Testing OAuth with redirect URL:', window.location.origin + '/auth/callback');
+            const redirectTo = `${getURL()}auth/callback`;
+            console.log('Testing OAuth with redirect URL:', redirectTo);
             const result = document.getElementById('result');
             
             try {
                 const { data, error } = await supabase.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
-                        redirectTo: window.location.origin + '/auth/callback',
-                        queryParams: {
-                            access_type: 'offline',
-                            prompt: 'consent',
-                            hd: 'iiitkottayam.ac.in'
-                        }
-                    }
+                        redirectTo: redirectTo,
+                    },
                 });
 
                 if (error) {

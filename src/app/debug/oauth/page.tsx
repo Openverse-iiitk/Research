@@ -3,6 +3,17 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 
+// Helper function to get the correct URL for different environments
+const getURL = () => {
+  let url =
+    process?.env?.NEXT_PUBLIC_SITE_URL ?? // Set this to your site URL in production
+    process?.env?.NEXT_PUBLIC_VERCEL_URL ?? // Automatically set by Vercel
+    (process.env.NODE_ENV === 'production' ? 'https://research-iiitk.vercel.app/' : 'http://localhost:3000/');
+  url = url.includes('http') ? url : `https://${url}`;
+  url = url.charAt(url.length - 1) === '/' ? url : `${url}/`;
+  return url;
+};
+
 export default function OAuthDebugPage() {
   const [debugInfo, setDebugInfo] = useState<any>({});
 
@@ -27,19 +38,14 @@ export default function OAuthDebugPage() {
 
   const testGoogleOAuth = async () => {
     try {
-      const redirectTo = `${process.env.NEXT_PUBLIC_APP_URL || window.location.origin}/auth/callback`;
+      const redirectTo = `${getURL()}auth/callback`;
       console.log('Testing Google OAuth with redirect URL:', redirectTo);
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-            hd: 'iiitkottayam.ac.in'
-          }
-        }
+          redirectTo: redirectTo,
+        },
       });
 
       if (error) {

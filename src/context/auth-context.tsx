@@ -5,6 +5,17 @@ import { supabase, isValidEmailDomain, validateEmailDomain } from "@/lib/supabas
 import { useRouter } from "next/navigation";
 import { syncUserToLocalStorage } from "@/lib/data-store";
 
+// Helper function to get the correct URL for different environments
+const getURL = () => {
+  let url =
+    process?.env?.NEXT_PUBLIC_SITE_URL ?? // Set this to your site URL in production
+    process?.env?.NEXT_PUBLIC_VERCEL_URL ?? // Automatically set by Vercel
+    (process.env.NODE_ENV === 'production' ? 'https://research-iiitk.vercel.app/' : 'http://localhost:3000/');
+  url = url.includes('http') ? url : `https://${url}`;
+  url = url.charAt(url.length - 1) === '/' ? url : `${url}/`;
+  return url;
+};
+
 type UserRole = 'student' | 'teacher' | 'admin';
 
 interface CustomUser {
@@ -275,29 +286,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async (): Promise<{ success: boolean; error?: string; needsSetup?: boolean }> => {
     try {
-      // Get the proper redirect URL based on environment
-      const getRedirectURL = () => {
-        // Always use the current window location for the redirect URL
-        // This ensures it works in both dev and prod environments
-        const { origin } = window.location;
-        return `${origin}/auth/callback`;
-      };
-
-      const redirectTo = getRedirectURL();
-      console.log('OAuth redirect URL:', redirectTo);
-      console.log('Current URL:', window.location.href);
       console.log('OAuth flow starting...');
 
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo,
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-            hd: 'iiitkottayam.ac.in' // Domain hint for Google
-          }
-        }
+          redirectTo: `${getURL()}auth/callback`,
+        },
       });
 
       if (error) {
