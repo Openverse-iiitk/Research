@@ -1,32 +1,95 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search, Calendar, Clock, User, Tag, Plus, Filter } from "lucide-react";
 import Link from "next/link";
 import { ModernCard } from "./ui/modern-card";
 import { Button } from "./ui/button";
 import { useAuth } from "@/context/auth-context";
-import { getPublishedBlogPosts, getAllTags, searchBlogPosts, getBlogPostsByTag, type BlogPost } from "@/lib/blog-store";
+import { blogAPI } from "@/lib/api";
+
+// Local BlogPost type that matches our UI needs
+type BlogPost = {
+  id: string;
+  title: string;
+  content: string;
+  excerpt: string;
+  author: string;
+  authorEmail: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  published: boolean;
+  readTime: number;
+};
 
 export const BlogList: React.FC = () => {
   const { isLoggedIn } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
+  const [allTags, setAllTags] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const allPosts = getPublishedBlogPosts();
-  const allTags = getAllTags();
+  // Load blog posts from API
+  useEffect(() => {
+    const fetchBlogPosts = async () => {
+      try {
+        setLoading(true);
+        const posts = await blogAPI.getPublished();
+        
+        // Convert API response to BlogPost format if needed
+        const convertedPosts: BlogPost[] = posts.map((post: any) => ({
+          id: post.id,
+          title: post.title,
+          content: post.content,
+          excerpt: post.excerpt,
+          author: post.author_name || post.author_email?.split('@')[0] || 'Unknown',
+          authorEmail: post.author_email,
+          tags: post.tags || [],
+          createdAt: post.created_at,
+          updatedAt: post.updated_at,
+          published: post.published,
+          readTime: post.read_time || 5
+        }));
+        
+        setAllPosts(convertedPosts);
+        
+        // Extract unique tags
+        const uniqueTags = Array.from(new Set(convertedPosts.flatMap(post => post.tags))).sort();
+        setAllTags(uniqueTags);
+      } catch (err: any) {
+        console.error('Error fetching blog posts:', err);
+        setError('Failed to load blog posts');
+        setAllPosts([]);
+        setAllTags([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBlogPosts();
+  }, []);
 
   const filteredPosts = useMemo(() => {
     let posts = allPosts;
     
     if (searchQuery.trim()) {
-      posts = searchBlogPosts(searchQuery.trim());
+      const query = searchQuery.trim().toLowerCase();
+      posts = posts.filter(post => 
+        post.title.toLowerCase().includes(query) ||
+        post.content.toLowerCase().includes(query) ||
+        post.excerpt.toLowerCase().includes(query) ||
+        post.author.toLowerCase().includes(query) ||
+        post.tags.some((tag: string) => tag.toLowerCase().includes(query))
+      );
     }
     
     if (selectedTag) {
       posts = posts.filter(post => 
-        post.tags.some(tag => tag.toLowerCase() === selectedTag.toLowerCase())
+        post.tags.some((tag: string) => tag.toLowerCase() === selectedTag.toLowerCase())
       );
     }
     
@@ -222,7 +285,7 @@ const BlogPostCard: React.FC<BlogPostCardProps> = ({ post, index }) => {
         <div className="p-6 flex-1 flex flex-col">
           {/* Tags */}
           <div className="flex flex-wrap gap-2 mb-4">
-            {post.tags.slice(0, 3).map((tag) => (
+            {post.tags.slice(0, 3).map((tag: string) => (
               <span
                 key={tag}
                 className="px-2 py-1 text-xs bg-cyan-500/10 border border-cyan-500/20 text-cyan-300 rounded-full"

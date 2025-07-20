@@ -1,10 +1,10 @@
 "use client";
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Lock, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Lock, ArrowRight, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/auth-context";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 interface PasswordInputProps {
   name: string;
@@ -80,14 +80,24 @@ const PasswordInput: React.FC<PasswordInputProps> = ({ name, onInput, className,
 
 export const LoginPage: React.FC = () => {
   const [formState, setFormState] = useState({
-    email: "",
+    username: "",
     password: "",
   });
   const [loginError, setLoginError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   
-  const { login } = useAuth();
+  const { signInWithPassword, signInWithGoogle } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Check for domain error from OAuth callback
+  React.useEffect(() => {
+    const error = searchParams.get('error');
+    if (error === 'invalid_domain') {
+      setLoginError('Only @iiitkottayam.ac.in email addresses are allowed.');
+    }
+  }, [searchParams]);
 
   const handleInput = (name: string, value: string) => {
     setFormState({
@@ -105,24 +115,30 @@ export const LoginPage: React.FC = () => {
     setIsLoading(true);
     setLoginError("");
 
-    // Simulate API call delay
-    setTimeout(() => {
-      const success = login(formState.email, formState.password);
-      
-      if (success) {
-        // Role-based redirect logic will be handled by useEffect in auth context
-        // For now, we'll redirect based on email
-        if (formState.email === 'teacher') {
-          router.push('/teacher');
-        } else {
-          router.push('/projects');
-        }
-      } else {
-        setLoginError("Invalid credentials. Use admin/admin or teacher/teacher to login.");
-      }
-      
-      setIsLoading(false);
-    }, 1000);
+    const result = await signInWithPassword(formState.username, formState.password);
+    
+    if (result.success) {
+      // Auth context will handle redirect based on user role
+      router.refresh();
+    } else {
+      setLoginError(result.error || "Invalid credentials. Please try again.");
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleGoogleSignIn = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsGoogleLoading(true);
+    setLoginError("");
+
+    const result = await signInWithGoogle();
+    
+    if (!result.success) {
+      setLoginError(result.error || "Failed to sign in with Google. Please try again.");
+      setIsGoogleLoading(false);
+    }
+    // If successful, the OAuth flow will handle the redirect
   };
 
   return (
@@ -205,14 +221,14 @@ export const LoginPage: React.FC = () => {
           </h3>
           
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            {/* Email Input */}
+            {/* Username Input */}
             <div className="password-control relative mb-6">
               <input
                 type="text"
-                value={formState.email}
-                onChange={(e) => handleInput("email", e.target.value)}
+                value={formState.username}
+                onChange={(e) => handleInput("username", e.target.value)}
                 required
-                disabled={isLoading}
+                disabled={isLoading || isGoogleLoading}
                 className="w-full bg-transparent border-0 outline-none text-white/96 text-lg pl-12 pr-4 py-0 transition-all duration-300 peer disabled:opacity-50"
                 style={{ height: "72px" }}
               />
@@ -228,25 +244,36 @@ export const LoginPage: React.FC = () => {
             </div>
 
             {/* Password Input */}
-            <PasswordInput name="password" onInput={handleInput} disabled={isLoading} />
+            <PasswordInput name="password" onInput={handleInput} disabled={isLoading || isGoogleLoading} />
+
+            {/* Forgot Password Button */}
+            <div className="flex justify-end mb-2">
+              <a
+                href="/auth/reset-password/"
+                className="text-cyan-400 hover:underline text-sm font-medium"
+              >
+                Forgot Password?
+              </a>
+            </div>
 
             {/* Error Message */}
             {loginError && (
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-red-400 text-sm mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg"
+                className="text-red-400 text-sm mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg flex items-center gap-2"
               >
-                {loginError}
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{loginError}</span>
               </motion.div>
             )}
 
             {/* Submit Button */}
             <motion.button
               type="submit"
-              disabled={!formState.email.length || !formState.password.length || isLoading}
-              whileHover={{ scale: isLoading ? 1 : 1.02 }}
-              whileTap={{ scale: isLoading ? 1 : 0.98 }}
+              disabled={!formState.username.length || !formState.password.length || isLoading || isGoogleLoading}
+              whileHover={{ scale: isLoading || isGoogleLoading ? 1 : 1.02 }}
+              whileTap={{ scale: isLoading || isGoogleLoading ? 1 : 0.98 }}
               className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium text-lg rounded-xl border-0 outline-none cursor-pointer transition-all duration-300 flex items-center justify-between px-6 tracking-wide shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40"
               style={{ height: "60px", padding: "0 12px 0 24px" }}
             >
@@ -257,6 +284,48 @@ export const LoginPage: React.FC = () => {
                 <ArrowRight className="w-6 h-6" />
               )}
             </motion.button>
+
+            {/* Divider */}
+            <div className="flex items-center my-4">
+              <div className="flex-1 h-px bg-neutral-600"></div>
+              <span className="px-4 text-neutral-400 text-sm">or</span>
+              <div className="flex-1 h-px bg-neutral-600"></div>
+            </div>
+
+            {/* Google Sign In Button */}
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isLoading || isGoogleLoading}
+              className="w-full mt-4 flex items-center justify-center gap-2 bg-white text-neutral-900 font-medium text-lg rounded-xl border-0 outline-none cursor-pointer transition-all duration-300 shadow-md hover:bg-neutral-100 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{ minHeight: "48px" }}
+            >
+              {isGoogleLoading ? (
+                <div className="w-6 h-6 border-2 border-neutral-300 border-t-neutral-900 rounded-full animate-spin" />
+              ) : (
+                <>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g clipPath="url(#clip0_17_40)">
+                      <path d="M23.766 12.276c0-.818-.074-1.604-.213-2.356H12.24v4.478h6.48c-.28 1.5-1.12 2.773-2.38 3.63v3.018h3.84c2.25-2.073 3.586-5.13 3.586-8.77z" fill="#4285F4"/>
+                      <path d="M12.24 24c3.24 0 5.963-1.073 7.95-2.92l-3.84-3.018c-1.07.72-2.44 1.15-4.11 1.15-3.16 0-5.84-2.13-6.8-4.99H1.48v3.13C3.46 21.3 7.54 24 12.24 24z" fill="#34A853"/>
+                      <path d="M5.44 14.222A7.23 7.23 0 0 1 4.8 12c0-.77.13-1.52.36-2.22V6.65H1.48A11.97 11.97 0 0 0 0 12c0 1.88.45 3.66 1.48 5.35l3.96-3.13z" fill="#FBBC05"/>
+                      <path d="M12.24 4.77c1.77 0 3.36.61 4.62 1.8l3.45-3.45C18.2 1.07 15.48 0 12.24 0 7.54 0 3.46 2.7 1.48 6.65l3.96 3.13c.96-2.86 3.64-4.99 6.8-4.99z" fill="#EA4335"/>
+                    </g>
+                    <defs>
+                      <clipPath id="clip0_17_40">
+                        <rect width="24" height="24" fill="white"/>
+                      </clipPath>
+                    </defs>
+                  </svg>
+                  Sign in with Google
+                </>
+              )}
+            </button>
+
+            {/* Domain Notice */}
+            <div className="mt-4 text-center text-neutral-500 text-xs">
+              <p>Google sign-in is restricted to @iiitkottayam.ac.in emails</p>
+            </div>
           </form>
         </motion.div>
       </motion.div>

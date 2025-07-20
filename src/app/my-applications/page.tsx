@@ -1,10 +1,10 @@
 "use client";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Clock, CheckCircle, XCircle, Calendar, MapPin, User } from "lucide-react";
-import { useEffect } from "react";
+import { applicationAPI } from "@/lib/api";
 
 interface Application {
   id: string;
@@ -16,55 +16,6 @@ interface Application {
   location?: string;
   supervisor?: string;
 }
-
-// Mock data for applications
-const mockApplications: Application[] = [
-  {
-    id: '1',
-    projectTitle: 'AI-Powered Medical Diagnosis System',
-    projectType: 'project',
-    status: 'pending',
-    appliedDate: '2025-01-15',
-    description: 'Developing machine learning models for early disease detection using medical imaging data.',
-    supervisor: 'Dr. Sarah Johnson'
-  },
-  {
-    id: '2',
-    projectTitle: 'TechCrunch Disrupt 2025',
-    projectType: 'hackathon',
-    status: 'accepted',
-    appliedDate: '2025-01-10',
-    description: 'Build innovative solutions for sustainable technology in 48 hours.',
-    location: 'San Francisco, CA'
-  },
-  {
-    id: '3',
-    projectTitle: 'International Conference on Machine Learning',
-    projectType: 'conference',
-    status: 'rejected',
-    appliedDate: '2025-01-05',
-    description: 'Premier conference for machine learning research and applications.',
-    location: 'Vienna, Austria'
-  },
-  {
-    id: '4',
-    projectTitle: 'Blockchain Supply Chain Management',
-    projectType: 'project',
-    status: 'accepted',
-    appliedDate: '2025-01-12',
-    description: 'Creating a transparent and efficient supply chain system using blockchain technology.',
-    supervisor: 'Prof. Michael Chen'
-  },
-  {
-    id: '5',
-    projectTitle: 'NASA Space Apps Challenge',
-    projectType: 'hackathon',
-    status: 'pending',
-    appliedDate: '2025-01-18',
-    description: 'Global hackathon focused on solving challenges in space exploration.',
-    location: 'Multiple Locations'
-  }
-];
 
 const StatusBadge: React.FC<{ status: Application['status'] }> = ({ status }) => {
   const getStatusConfig = (status: Application['status']) => {
@@ -110,6 +61,9 @@ const StatusBadge: React.FC<{ status: Application['status'] }> = ({ status }) =>
 export default function MyApplications() {
   const { isLoggedIn, user } = useAuth();
   const router = useRouter();
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -120,6 +74,35 @@ export default function MyApplications() {
       router.push('/'); // Redirect non-students to home
       return;
     }
+
+    // Fetch user applications
+    const fetchApplications = async () => {
+      try {
+        setLoading(true);
+        const userApplications = await applicationAPI.getByStudent(user.id);
+        
+        // Convert API response to local Application format
+        const convertedApps: Application[] = userApplications.map((app: any) => ({
+          id: app.id,
+          projectTitle: app.project_title || 'Unknown Project',
+          projectType: 'project' as const, // API doesn't distinguish types yet
+          status: app.status,
+          appliedDate: app.created_at,
+          description: app.project_description || 'No description available',
+          supervisor: app.teacher_name
+        }));
+        
+        setApplications(convertedApps);
+      } catch (err) {
+        console.error('Error fetching applications:', err);
+        setError('Failed to load applications');
+        setApplications([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchApplications();
   }, [isLoggedIn, user, router]);
 
   if (!isLoggedIn || user?.role !== 'student') {
@@ -163,7 +146,16 @@ export default function MyApplications() {
 
       {/* Applications List */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {mockApplications.length === 0 ? (
+        {loading ? (
+          <div className="text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-cyan-400 mx-auto"></div>
+            <p className="text-gray-400 mt-4">Loading applications...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <p className="text-red-400">{error}</p>
+          </div>
+        ) : applications.length === 0 ? (
           <div className="text-center py-16">
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gray-800 flex items-center justify-center">
               <Calendar className="w-12 h-12 text-gray-400" />
@@ -181,7 +173,7 @@ export default function MyApplications() {
           </div>
         ) : (
           <div className="space-y-6">
-            {mockApplications.map((application, index) => (
+            {applications.map((application, index) => (
               <motion.div
                 key={application.id}
                 initial={{ opacity: 0, y: 20 }}

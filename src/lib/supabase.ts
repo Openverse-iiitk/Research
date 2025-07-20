@@ -23,28 +23,52 @@ export interface Database {
         Row: {
           id: string;
           email: string;
-          role: 'student' | 'teacher';
+          username?: string;
+          password_hash?: string;
+          google_uid?: string;
+          role: 'student' | 'teacher' | 'admin';
           name: string;
           department?: string;
+          phone?: string;
+          profile_image_url?: string;
+          email_verified: boolean;
+          is_active: boolean;
+          last_login_at?: string;
           created_at: string;
           updated_at: string;
         };
         Insert: {
-          id: string;
+          id?: string;
           email: string;
-          role: 'student' | 'teacher';
+          username?: string;
+          password_hash?: string;
+          google_uid?: string;
+          role?: 'student' | 'teacher' | 'admin';
           name: string;
           department?: string;
+          phone?: string;
+          profile_image_url?: string;
+          email_verified?: boolean;
+          is_active?: boolean;
+          last_login_at?: string;
         };
         Update: {
           email?: string;
-          role?: 'student' | 'teacher';
+          username?: string;
+          password_hash?: string;
+          google_uid?: string;
+          role?: 'student' | 'teacher' | 'admin';
           name?: string;
           department?: string;
+          phone?: string;
+          profile_image_url?: string;
+          email_verified?: boolean;
+          is_active?: boolean;
+          last_login_at?: string;
           updated_at?: string;
         };
       };
-      posts: {
+      projects: {
         Row: {
           id: string;
           title: string;
@@ -61,6 +85,7 @@ export interface Database {
           deadline: string;
           stipend?: string;
           views: number;
+          tags: string[];
           created_at: string;
           updated_at: string;
         };
@@ -68,11 +93,11 @@ export interface Database {
           id?: string;
           title: string;
           description: string;
-          requirements: string[];
+          requirements?: string[];
           duration: string;
           location: string;
-          max_students: number;
-          status: 'draft' | 'active' | 'closed';
+          max_students?: number;
+          status?: 'draft' | 'active' | 'closed';
           author_id: string;
           author_email: string;
           author_name: string;
@@ -80,6 +105,7 @@ export interface Database {
           deadline: string;
           stipend?: string;
           views?: number;
+          tags?: string[];
         };
         Update: {
           title?: string;
@@ -92,6 +118,7 @@ export interface Database {
           deadline?: string;
           stipend?: string;
           views?: number;
+          tags?: string[];
           updated_at?: string;
         };
       };
@@ -103,15 +130,16 @@ export interface Database {
           student_name: string;
           student_phone: string;
           student_year: string;
-          student_gpa: string;
-          post_id: string;
-          post_title: string;
+          student_gpa: number;
+          project_id: string;
+          project_title: string;
+          teacher_id: string;
           teacher_email: string;
-          skills: string;
-          reason: string;
+          skills: string[];
+          cover_letter: string;
           resume_url?: string;
           status: 'pending' | 'accepted' | 'rejected';
-          applied_date: string;
+          applied_at: string;
           updated_at: string;
         };
         Insert: {
@@ -121,12 +149,13 @@ export interface Database {
           student_name: string;
           student_phone: string;
           student_year: string;
-          student_gpa: string;
-          post_id: string;
-          post_title: string;
+          student_gpa: number;
+          project_id: string;
+          project_title: string;
+          teacher_id: string;
           teacher_email: string;
-          skills: string;
-          reason: string;
+          skills?: string[];
+          cover_letter: string;
           resume_url?: string;
           status?: 'pending' | 'accepted' | 'rejected';
         };
@@ -147,6 +176,8 @@ export interface Database {
           tags: string[];
           published: boolean;
           read_time: number;
+          views: number;
+          pdf_url?: string;
           created_at: string;
           updated_at: string;
         };
@@ -158,9 +189,11 @@ export interface Database {
           author_id: string;
           author_email: string;
           author_name: string;
-          tags: string[];
+          tags?: string[];
           published?: boolean;
-          read_time: number;
+          read_time?: number;
+          views?: number;
+          pdf_url?: string;
         };
         Update: {
           title?: string;
@@ -169,9 +202,25 @@ export interface Database {
           tags?: string[];
           published?: boolean;
           read_time?: number;
+          views?: number;
+          pdf_url?: string;
           updated_at?: string;
         };
       };
     };
   };
+}
+
+// Utility functions for domain restriction
+export const ALLOWED_EMAIL_DOMAIN = '@iiitkottayam.ac.in';
+
+export function isValidEmailDomain(email: string): boolean {
+  return email.endsWith(ALLOWED_EMAIL_DOMAIN);
+}
+
+export function validateEmailDomain(email: string): string | null {
+  if (!isValidEmailDomain(email)) {
+    return `Only ${ALLOWED_EMAIL_DOMAIN} email addresses are allowed.`;
+  }
+  return null;
 }

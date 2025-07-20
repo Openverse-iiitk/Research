@@ -6,7 +6,27 @@ import { Badge } from "./ui/badge";
 import { User, Calendar, MapPin, DollarSign, Clock, BookOpen, Search, Filter, ChevronDown } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
-import { getActiveStudentPosts, incrementPostViews, type TeacherPost } from "@/lib/data-store";
+import { projectAPI } from "@/lib/api";
+
+// Local types
+interface TeacherPost {
+  id: string;
+  title: string;
+  description: string;
+  requirements: string[];
+  duration: string;
+  location: string;
+  maxStudents: number;
+  status: 'draft' | 'active' | 'closed';
+  createdDate: string;
+  authorEmail: string;
+  authorName: string;
+  department: string;
+  stipend?: string;
+  deadline: string;
+  applications: any[];
+  views: number;
+}
 
 interface ProjectItem {
   id: string;
@@ -31,13 +51,45 @@ export const Projects = () => {
   const [showAllConferences, setShowAllConferences] = useState(false);
   const [realPosts, setRealPosts] = useState<TeacherPost[]>([]);
   
-  const { isLoggedIn, user, requireAuth } = useAuth();
+  const { isLoggedIn, user } = useAuth();
   const router = useRouter();
 
-  // Load real posts from data store
+    // Load real posts from API
   useEffect(() => {
-    const posts = getActiveStudentPosts();
-    setRealPosts(posts);
+    const fetchProjects = async () => {
+      try {
+        const apiProjects = await projectAPI.getAll();
+        if (apiProjects && apiProjects.length > 0) {
+          // Convert API response to TeacherPost format
+          const convertedPosts: TeacherPost[] = apiProjects.map((project: any) => ({
+            id: project.id,
+            title: project.title,
+            description: project.description,
+            requirements: project.requirements || [],
+            duration: project.duration,
+            location: project.location,
+            maxStudents: project.max_students,
+            status: project.status,
+            createdDate: project.created_at,
+            authorEmail: project.teacher_email,
+            authorName: project.teacher_name,
+            department: project.department,
+            deadline: project.deadline,
+            stipend: project.stipend,
+            applications: [], // Will be loaded separately if needed
+            views: project.views || 0
+          }));
+          setRealPosts(convertedPosts);
+        } else {
+          setRealPosts([]);
+        }
+      } catch (error) {
+        console.error('Error fetching projects from API:', error);
+        setRealPosts([]);
+      }
+    };
+
+    fetchProjects();
   }, []);
 
   // Convert TeacherPost to ProjectItem format

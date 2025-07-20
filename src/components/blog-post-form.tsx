@@ -8,7 +8,7 @@ import { ModernCard } from "./ui/modern-card";
 import { Button } from "./ui/button";
 import { MarkdownRenderer } from "./ui/markdown-renderer";
 import { useAuth } from "@/context/auth-context";
-import { createBlogPost, updateBlogPost, getBlogPostById, type BlogPost } from "@/lib/blog-store";
+import { blogAPI } from "@/lib/api";
 
 interface BlogPostFormProps {
   postId?: string; // For editing existing posts
@@ -42,20 +42,29 @@ export const BlogPostForm: React.FC<BlogPostFormProps> = ({ postId }) => {
 
   // Load existing post data if editing
   React.useEffect(() => {
-    if (isEditing && postId) {
-      const existingPost = getBlogPostById(postId);
-      if (existingPost) {
-        setFormData({
-          title: existingPost.title,
-          content: existingPost.content,
-          excerpt: existingPost.excerpt,
-          tags: existingPost.tags,
-          published: existingPost.published
-        });
-      } else {
-        router.push('/blog');
+    const loadPostData = async () => {
+      if (isEditing && postId) {
+        try {
+          const existingPost = await blogAPI.getById(postId);
+          if (existingPost) {
+            setFormData({
+              title: existingPost.title,
+              content: existingPost.content,
+              excerpt: existingPost.excerpt,
+              tags: existingPost.tags || [],
+              published: existingPost.published
+            });
+          } else {
+            router.push('/blog');
+          }
+        } catch (error) {
+          console.error('Error loading post:', error);
+          router.push('/blog');
+        }
       }
-    }
+    };
+
+    loadPostData();
   }, [isEditing, postId, router]);
 
   // Redirect if not logged in
@@ -145,11 +154,11 @@ export const BlogPostForm: React.FC<BlogPostFormProps> = ({ postId }) => {
         throw new Error('User not authenticated');
       }
 
-      let success = false;
+      let result = null;
 
       if (isEditing && postId) {
         // Update existing post
-        success = updateBlogPost(postId, {
+        result = await blogAPI.update(postId, {
           title: formData.title.trim(),
           content: formData.content.trim(),
           excerpt: formData.excerpt.trim(),
@@ -158,18 +167,20 @@ export const BlogPostForm: React.FC<BlogPostFormProps> = ({ postId }) => {
         });
       } else {
         // Create new post
-        success = createBlogPost({
+        result = await blogAPI.create({
           title: formData.title.trim(),
           content: formData.content.trim(),
           excerpt: formData.excerpt.trim(),
           tags: formData.tags,
           published: formData.published,
-          author: user.email.split('@')[0],
-          authorEmail: user.email
+          author_id: user.id,
+          author_name: user.email.split('@')[0],
+          author_email: user.email,
+          read_time: Math.ceil(formData.content.length / 200) // Estimate read time
         });
       }
 
-      if (success) {
+      if (result) {
         router.push('/blog');
       } else {
         throw new Error(`Failed to ${isEditing ? 'update' : 'create'} blog post`);

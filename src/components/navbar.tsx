@@ -32,16 +32,15 @@ export const Navbar = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
-  const { isLoggedIn, user, logout } = useAuth();
+  const { isLoggedIn, user, signOut } = useAuth();
 
   // Determine which nav items to show based on current page
   const isProjectsPage = pathname?.startsWith('/projects') || pathname?.startsWith('/login') || pathname?.startsWith('/my-applications') || pathname?.startsWith('/teacher') || pathname?.startsWith('/blog') || pathname?.startsWith('/apply');
   const navItems = isProjectsPage ? projectsNavItems : homeNavItems;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await signOut();
     setUserMenuOpen(false);
-    router.push('/');
   };
 
   const handleAuthClick = () => {
