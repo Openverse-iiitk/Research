@@ -34,6 +34,38 @@ const teamMembers = [
     delay: 0.1
   },
   {
+    name: "Sam Joe",
+    role: "Backend Developer",
+    expertise: "Backend Development, APIs, Database Design",
+    background: "Sam is a backend developer who loves building robust APIs and scalable systems. He enjoys working with Node.js and cloud infrastructure.",
+    contribution: "Develops and maintains the backend services powering Openverse, ensuring reliability and performance.",
+    image: "/sam.jpeg",
+    social: {
+      linkedin: "https://www.linkedin.com/in/samjoe404",
+      github: "https://github.com/KingRain",
+      email: "contribute@openverse.org"
+    },
+    quote: "Great APIs are invisible, but their impact is everywhere.",
+    skills: ["Node.js", "APIs", "Database Design", "Cloud"],
+    delay: 0.15
+  },
+  {
+    name: "Sudhanshu Rai",
+    role: "Security Analyst",
+    expertise: "Security Analysis, Penetration Testing, Cybersecurity",
+    background: "Sudhanshu is a security analyst dedicated to keeping Openverse safe. He specializes in finding vulnerabilities and improving platform security.",
+    contribution: "Ensures the security of Openverse by performing regular audits and implementing best practices.",
+    image: "/sudhanshu.webp",
+    social: {
+      linkedin: "https://linkedin.com/in/sudhanshu-rai-5a3290335/",
+      github: "https://github.com/SudhanshuRai356",
+      email: "contribute@openverse.org"
+    },
+    quote: "Security is not a feature, it's a mindset.",
+    skills: ["Security Analysis", "Penetration Testing", "Cybersecurity"],
+    delay: 0.18
+  },
+  {
     name: "Could be You!",
     role: "Future Contributor",
     expertise: "Your Skills Here",
