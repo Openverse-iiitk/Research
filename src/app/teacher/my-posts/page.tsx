@@ -68,7 +68,9 @@ export default function MyPosts() {
           console.error('Error loading teacher posts:', error);
           setPosts([]);
         }
-      };      loadPosts();
+      };
+      
+      loadPosts();
     }
   }, [isLoggedIn, user, router]);
 
