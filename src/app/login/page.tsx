@@ -27,6 +27,7 @@ function LoginContent() {
     if (isLoggedIn && user) {
       // User successfully logged in, redirect will be handled by auth context
       console.log('User logged in successfully:', user.email, 'role:', user.role);
+      setIsLoading(false); // Ensure loading state is cleared
     }
   }, [isLoggedIn, user]);
 
@@ -126,20 +127,32 @@ function LoginContent() {
     setIsLoading(true);
     setError('');
 
+    // Set a timeout to prevent infinite loading
+    const authTimeout = setTimeout(() => {
+      setIsLoading(false);
+      setError('Authentication timed out. Please try again.');
+    }, 10000); // 10 second timeout
+
     try {
       if (loginMode === 'signin') {
         // Sign in with email/password
         const result = await signInWithEmail(formData.email, formData.password);
+        clearTimeout(authTimeout);
+        
         if (!result.success) {
           setError(result.error || 'Failed to sign in');
+          setIsLoading(false);
         }
+        // If successful, the auth context will handle the redirect
       } else {
         // Sign up - not implemented yet
+        clearTimeout(authTimeout);
         setError('Email/password signup is not yet implemented. Please use Google Sign-In.');
+        setIsLoading(false);
       }
     } catch (error) {
+      clearTimeout(authTimeout);
       setError('Authentication failed. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   };

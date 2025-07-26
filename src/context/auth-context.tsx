@@ -58,9 +58,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<CustomUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
+    // Set a maximum loading time to prevent infinite loading
+    const loadingTimeout = setTimeout(() => {
+      if (isLoading) {
+        console.log('Loading timeout reached, forcing loading to false');
+        setIsLoading(false);
+      }
+    }, 5000); // 5 second timeout
+
     // Get initial session
     const getInitialSession = async () => {
       try {
@@ -80,6 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(null);
         setUser(null);
       } finally {
+        clearTimeout(loadingTimeout);
         setIsLoading(false);
       }
     };
@@ -100,14 +110,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
         }
         
-        // Only set loading to false if we're not in the middle of initial load
-        if (!isLoading) {
-          setIsLoading(false);
-        }
+        clearTimeout(loadingTimeout);
+        setIsLoading(false);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      clearTimeout(loadingTimeout);
+    };
   }, []);
 
   // Handle post-login redirects based on user role
@@ -119,7 +130,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentPath === '/login' || currentPath === '/register') {
         const redirectPath = getRedirectPath(user.role);
         console.log(`Redirecting ${user.role} user to ${redirectPath}`);
-        router.push(redirectPath);
+        
+        // Use replace instead of push to avoid adding to history
+        router.replace(redirectPath);
       }
     }
   }, [user, session, isLoading, router]);
@@ -139,6 +152,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (userId: string) => {
     try {
+      // Prevent multiple calls if we're already creating a user
+      if (isCreatingUser) {
+        console.log('Already creating user, skipping fetchUserProfile');
+        return;
+      }
+
       // First, get the email from Supabase Auth
       const { data: authUser, error: authError } = await supabase.auth.getUser();
       
@@ -163,19 +182,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('User email:', authUser.user.email);
         
         // If user doesn't exist in custom table, create them
-        if (error.code === 'PGRST116') {
+        if (error.code === 'PGRST116' && !isCreatingUser) {
           console.log('User not found in custom table, creating...');
+          setIsCreatingUser(true);
           await createUserFromAuth(authUser.user);
+          setIsCreatingUser(false);
           return;
         }
         
         // For other errors, create a basic user object from auth data
         console.log('Database error, creating basic user from auth data');
+        // Determine role based on email format
+        const emailPrefix = authUser.user.email?.split('@')[0] || '';
+        const hasNumberBeforeAt = /\d/.test(emailPrefix);
+        const defaultRole = hasNumberBeforeAt ? 'student' : 'teacher';
+        
         const basicUser: CustomUser = {
           id: authUser.user.id,
           email: authUser.user.email,
           username: authUser.user.email.split('@')[0],
-          role: 'student', // Default role
+          role: defaultRole,
           name: authUser.user.user_metadata?.full_name || authUser.user.email.split('@')[0],
           department: 'Unknown',
           phone: undefined,
