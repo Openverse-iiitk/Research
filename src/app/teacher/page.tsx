@@ -50,7 +50,7 @@ export default function TeacherDashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-charcoal text-white pt-28 sm:pt-32 lg:pt-36">
+    <div className="min-h-screen bg-charcoal text-white pt-20 sm:pt-28 md:pt-32 lg:pt-36">
       {/* Header */}
       <div className="bg-gradient-to-r from-charcoal via-gray-900 to-charcoal border-b border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

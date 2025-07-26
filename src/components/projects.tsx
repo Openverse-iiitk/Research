@@ -285,7 +285,7 @@ export const Projects = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 pt-28 sm:pt-32 lg:pt-36">
+    <div className="min-h-screen bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 pt-20 sm:pt-28 md:pt-32 lg:pt-36">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8 sm:pb-12">
         {/* Header with Search and Sort */}
         <motion.div

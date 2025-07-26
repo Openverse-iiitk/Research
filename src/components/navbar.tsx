@@ -82,10 +82,10 @@ export const Navbar = () => {
   }, [userMenuOpen]);
 
   return (
-        <motion.nav className="max-w-7xl fixed top-6 mx-auto inset-x-0 z-50 w-[95%] lg:w-full">
+        <motion.nav className="max-w-7xl fixed top-4 sm:top-6 mx-auto inset-x-0 z-50 w-[95%] sm:w-[90%] lg:w-full">
       <motion.div
         className={cn(
-          "w-full flex relative justify-between px-6 py-4 rounded-3xl transition-all duration-500 mx-auto",
+          "w-full flex relative justify-between px-4 sm:px-6 py-3 sm:py-4 rounded-2xl sm:rounded-3xl transition-all duration-500 mx-auto",
           "backdrop-blur-xl border border-white/10",
           "shadow-2xl shadow-cyan-500/10"
         )}
