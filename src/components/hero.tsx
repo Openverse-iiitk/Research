@@ -43,7 +43,7 @@ export const Hero = () => {
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.8, delay: 0.3 }}
-        className="absolute top-20 sm:top-24 lg:top-28 left-6 z-20"
+        className="absolute top-16 sm:top-20 md:top-24 lg:top-28 left-4 sm:left-6 z-20"
       >
         <Link href="/" className="flex items-center gap-3">
           <Image
