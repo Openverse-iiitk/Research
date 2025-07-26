@@ -1,13 +1,13 @@
 import React from "react";
 import { BlogPostDetail } from "@/components/blog-post-detail";
-import { getPublishedBlogPosts } from "@/lib/blog-store";
+import { getPublishedBlogPosts } from "@/lib/blog-api-wrapper";
 
 interface BlogPostPageProps {
   params: Promise<{ id: string }>;
 }
 
 export async function generateStaticParams() {
-  const posts = getPublishedBlogPosts();
+  const posts = await getPublishedBlogPosts();
   return posts.map((post) => ({
     id: post.id,
   }));

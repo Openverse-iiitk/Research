@@ -5,6 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, User, Calendar, Mail, Phone, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react";
 import { getApplicationsByTeacher, updateApplicationStatus, type StudentApplication } from "@/lib/data-store";
+import { applicationAPI } from "@/lib/api";
 
 const StatusBadge: React.FC<{ status: StudentApplication['status'] }> = ({ status }) => {
   const getStatusConfig = (status: StudentApplication['status']) => {
@@ -77,7 +78,28 @@ function ApplicationsContent() {
     const loadApplications = async () => {
       if (user?.email) {
         try {
-          const teacherApplications = await getApplicationsByTeacher(user.email);
+          const apiApplications = await applicationAPI.getByTeacher(user.id);
+          
+          // Convert API response to StudentApplication format
+          const teacherApplications: StudentApplication[] = apiApplications.map((app: any) => ({
+            id: app.id,
+            studentEmail: app.student_email,
+            studentName: app.student_name,
+            studentPhone: app.student_phone,
+            projectId: app.project_id,
+            projectTitle: app.project_title,
+            teacherEmail: app.teacher_email,
+            coverLetter: app.cover_letter,
+            skills: Array.isArray(app.skills) ? app.skills : [app.skills],
+            gpa: app.student_gpa,
+            year: app.student_year,
+            resumeFile: undefined, // File objects don't persist
+            resumeFileName: app.resume_url ? app.resume_url.split('/').pop() : undefined,
+            status: app.status,
+            appliedDate: app.applied_at,
+            updatedAt: app.updated_at
+          }));
+          
           setApplications(teacherApplications);
           
           // Filter by specific post if postId is provided

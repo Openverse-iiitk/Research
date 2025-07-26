@@ -8,7 +8,7 @@ import { ModernCard } from "./ui/modern-card";
 import { Button } from "./ui/button";
 import { MarkdownRenderer } from "./ui/markdown-renderer";
 import { useAuth } from "@/context/auth-context";
-import { getBlogPostById, deleteBlogPost, type BlogPost } from "@/lib/blog-store";
+import { getBlogPostById, deleteBlogPost, type BlogPost } from "@/lib/blog-api-wrapper";
 
 interface BlogPostDetailProps {
   postId: string;
@@ -22,23 +22,32 @@ export const BlogPostDetail: React.FC<BlogPostDetailProps> = ({ postId }) => {
   const [deleting, setDeleting] = React.useState(false);
 
   React.useEffect(() => {
-    const fetchPost = () => {
-      const blogPost = getBlogPostById(postId);
-      setPost(blogPost);
-      setLoading(false);
+    const fetchPost = async () => {
+      try {
+        const blogPost = await getBlogPostById(postId);
+        setPost(blogPost);
+      } catch (error) {
+        console.error('Error fetching post:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchPost();
   }, [postId]);
 
   const handleDelete = async () => {
-    if (!post || !user) return;
+    if (!post || !user) {
+      return;
+    }
     
     const confirmed = window.confirm("Are you sure you want to delete this blog post? This action cannot be undone.");
-    if (!confirmed) return;
+    if (!confirmed) {
+      return;
+    }
 
     setDeleting(true);
-    const success = deleteBlogPost(post.id);
+    const success = await deleteBlogPost(post.id);
     
     if (success) {
       router.push('/blog');

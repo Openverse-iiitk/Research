@@ -1,14 +1,30 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { BookOpen, ArrowRight, Calendar, User } from "lucide-react";
 import Link from "next/link";
 import { ModernCard } from "./ui/modern-card";
 import { Button } from "./ui/button";
-import { getPublishedBlogPosts } from "@/lib/blog-store";
+import { getPublishedBlogPosts, BlogPost } from "@/lib/blog-api-wrapper";
 
 export const BlogSection: React.FC = () => {
-  const recentPosts = getPublishedBlogPosts().slice(0, 3);
+  const [recentPosts, setRecentPosts] = useState<BlogPost[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPosts = async () => {
+      try {
+        const posts = await getPublishedBlogPosts();
+        setRecentPosts(posts.slice(0, 3));
+      } catch (error) {
+        console.error('Error loading blog posts:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPosts();
+  }, []);
 
   return (
     <section className="py-24 px-4 bg-gradient-to-b from-neutral-900 via-neutral-800 to-neutral-900 relative overflow-hidden">
@@ -38,7 +54,15 @@ export const BlogSection: React.FC = () => {
         </motion.div>
 
         {/* Recent Blog Posts */}
-        {recentPosts.length > 0 ? (
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="animate-pulse">
+                <div className="bg-neutral-800 rounded-lg h-64"></div>
+              </div>
+            ))}
+          </div>
+        ) : recentPosts.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {recentPosts.map((post, index) => (
               <motion.div

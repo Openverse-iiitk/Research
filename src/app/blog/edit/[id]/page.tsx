@@ -1,9 +1,9 @@
 import React from "react";
 import { BlogPostForm } from "@/components/blog-post-form";
-import { getBlogPosts } from "@/lib/blog-store";
+import { getBlogPosts } from "@/lib/blog-api-wrapper";
 
 export async function generateStaticParams() {
-  const posts = getBlogPosts();
+  const posts = await getBlogPosts();
   return posts.map((post) => ({
     id: post.id,
   }));

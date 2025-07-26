@@ -281,6 +281,20 @@ export const applicationAPI = {
 
 // Blog post operations
 export const blogAPI = {
+  async getAll(): Promise<BlogPost[]> {
+    const { data, error } = await supabase
+      .from('blog_posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (error) {
+      console.error('Error fetching all blog posts:', error);
+      return [];
+    }
+    
+    return data || [];
+  },
+
   async getPublished(): Promise<BlogPost[]> {
     const { data, error } = await supabase
       .from('blog_posts')
