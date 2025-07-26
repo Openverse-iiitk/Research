@@ -58,23 +58,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<CustomUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    // Set a maximum loading time to prevent infinite loading
-    const loadingTimeout = setTimeout(() => {
-      if (isLoading) {
-        console.log('Loading timeout reached, forcing loading to false');
-        setIsLoading(false);
-      }
-    }, 5000); // 5 second timeout
-
+    let isMounted = true;
+    
     // Get initial session
     const getInitialSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         console.log('Initial session check:', session ? 'Session found' : 'No session');
+        
+        if (!isMounted) {
+          return;
+        }
+        
         setSession(session);
         
         if (session?.user) {
@@ -86,11 +85,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } catch (error) {
         console.error('Error getting initial session:', error);
-        setSession(null);
-        setUser(null);
+        if (isMounted) {
+          setSession(null);
+          setUser(null);
+        }
       } finally {
-        clearTimeout(loadingTimeout);
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+          setIsInitialized(true);
+        }
       }
     };
 
@@ -100,6 +103,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event, session ? 'Session exists' : 'No session');
+        
+        if (!isMounted) {
+          return;
+        }
+        
+        // Skip processing if we haven't finished initialization
+        if (!isInitialized) {
+          console.log('Skipping auth change during initialization');
+          return;
+        }
+        
         setSession(session);
         
         if (session?.user) {
@@ -110,20 +124,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(null);
         }
         
-        clearTimeout(loadingTimeout);
         setIsLoading(false);
       }
     );
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
-      clearTimeout(loadingTimeout);
     };
-  }, []);
+  }, [isInitialized]);
 
   // Handle post-login redirects based on user role
   useEffect(() => {
-    if (!isLoading && user && session) {
+    if (!isLoading && user && session && isInitialized) {
       const currentPath = window.location.pathname;
       
       // Only redirect if user is currently on login or register page
@@ -131,11 +144,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const redirectPath = getRedirectPath(user.role);
         console.log(`Redirecting ${user.role} user to ${redirectPath}`);
         
-        // Use replace instead of push to avoid adding to history
-        router.replace(redirectPath);
+        // Use replace to avoid adding to history stack
+        setTimeout(() => {
+          router.replace(redirectPath);
+        }, 100); // Small delay to ensure state is settled
       }
     }
-  }, [user, session, isLoading, router]);
+  }, [user, session, isLoading, isInitialized, router]);
 
   const getRedirectPath = (role: UserRole): string => {
     switch (role) {
@@ -152,19 +167,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchUserProfile = async (userId: string) => {
     try {
-      // Prevent multiple calls if we're already creating a user
-      if (isCreatingUser) {
-        console.log('Already creating user, skipping fetchUserProfile');
-        return;
-      }
-
       // First, get the email from Supabase Auth
       const { data: authUser, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authUser?.user?.email) {
         console.error('Error getting auth user:', authError);
-        // Don't clear session if we just can't get user profile
-        // The session might still be valid
         return;
       }
 
@@ -182,17 +189,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('User email:', authUser.user.email);
         
         // If user doesn't exist in custom table, create them
-        if (error.code === 'PGRST116' && !isCreatingUser) {
+        if (error.code === 'PGRST116') {
           console.log('User not found in custom table, creating...');
-          setIsCreatingUser(true);
           await createUserFromAuth(authUser.user);
-          setIsCreatingUser(false);
           return;
         }
         
         // For other errors, create a basic user object from auth data
         console.log('Database error, creating basic user from auth data');
-        // Determine role based on email format
+        
+        // Determine role based on email format (numbers in prefix = student, no numbers = teacher)
         const emailPrefix = authUser.user.email?.split('@')[0] || '';
         const hasNumberBeforeAt = /\d/.test(emailPrefix);
         const defaultRole = hasNumberBeforeAt ? 'student' : 'teacher';
@@ -231,8 +237,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
-      // Don't clear the session on profile fetch errors
-      // The authentication might still be valid
     }
   };
 
@@ -240,12 +244,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Creating user from auth:', authUser.email);
       
-      // Determine role based on email format
+      // Determine role based on email format (numbers in prefix = student, no numbers = teacher)
       const emailPrefix = authUser.email?.split('@')[0] || '';
       const hasNumberBeforeAt = /\d/.test(emailPrefix);
       const defaultRole = hasNumberBeforeAt ? 'student' : 'teacher';
       
-      // Check if this is one of our test users
+      // Check if this is one of our test users or apply the number-based rule
       let userData: any = {
         id: authUser.id,
         email: authUser.email,
@@ -257,7 +261,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         is_active: true
       };
 
-      // Match with existing test users (override default role if needed)
+      // Match with existing test users
       if (authUser.email === 'student.test@iiitkottayam.ac.in') {
         userData = {
           ...userData,
