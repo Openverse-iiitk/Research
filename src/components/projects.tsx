@@ -54,7 +54,7 @@ export const Projects = () => {
   const { isLoggedIn, user } = useAuth();
   const router = useRouter();
 
-    // Load real posts from API
+  // Load real posts from API
   useEffect(() => {
     const fetchProjects = async () => {
       try {
@@ -71,8 +71,8 @@ export const Projects = () => {
             maxStudents: project.max_students,
             status: project.status,
             createdDate: project.created_at,
-            authorEmail: project.teacher_email,
-            authorName: project.teacher_name,
+            authorEmail: project.author_email,
+            authorName: project.author_name,
             department: project.department,
             deadline: project.deadline,
             stipend: project.stipend,
@@ -220,67 +220,108 @@ export const Projects = () => {
   const renderProjectCard = (item: ProjectItem, index: number) => (
     <motion.div
       key={item.id}
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="h-full"
+      transition={{ duration: 0.6, delay: index * 0.1 }}
+      whileHover={{ 
+        y: -8,
+        transition: { duration: 0.3 }
+      }}
+      className="group relative p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-neutral-900/90 via-neutral-800/70 to-neutral-900/90 backdrop-blur-xl border border-white/10 shadow-2xl transition-all duration-300 hover:border-cyan-500/30 hover:shadow-cyan-500/10 h-full flex flex-col"
+      style={{
+        background: "linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.7) 50%, rgba(15, 23, 42, 0.9) 100%)",
+        backdropFilter: "blur(20px)",
+      }}
     >
-      <ModernCard className="h-full p-4 sm:p-6 lg:p-8 hover:scale-105 transition-transform duration-300">
-        <div className="space-y-4 sm:space-y-6">
-          <div>
-            <h3 className="text-lg sm:text-xl font-bold text-white mb-2 sm:mb-3 leading-tight">
-              {item.title}
-            </h3>
-            <p className="text-sm sm:text-base text-neutral-300 leading-relaxed line-clamp-3">
-              {item.description}
-            </p>
-          </div>
+      {/* Header */}
+      <div className="mb-4 sm:mb-6">
+        <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-white mb-2 group-hover:text-cyan-400 transition-colors leading-tight">
+          {item.title}
+        </h3>
+        <div className="text-cyan-400 font-semibold mb-1 text-sm sm:text-base">{item.professor}</div>
+        <div className="text-neutral-400 text-xs sm:text-sm">{item.department}</div>
+      </div>
 
-          <div className="space-y-2 sm:space-y-3">
-            <div className="flex items-center space-x-2 text-neutral-400">
-              <User className="w-4 h-4 flex-shrink-0" />
-              <span className="text-xs sm:text-sm">{item.professor}</span>
-            </div>
-            <div className="flex items-center space-x-2 text-neutral-400">
-              <BookOpen className="w-4 h-4 flex-shrink-0" />
-              <span className="text-xs sm:text-sm">{item.department}</span>
-            </div>
-            <div className="flex items-center space-x-2 text-neutral-400">
-              <Clock className="w-4 h-4 flex-shrink-0" />
-              <span className="text-xs sm:text-sm">{item.duration}</span>
-            </div>
-            {item.stipend && (
-              <div className="flex items-center space-x-2 text-green-400">
-                <DollarSign className="w-4 h-4 flex-shrink-0" />
-                <span className="text-xs sm:text-sm font-semibold">{item.stipend}</span>
-              </div>
-            )}
-            <div className="flex items-center space-x-2 text-orange-400">
-              <Calendar className="w-4 h-4 flex-shrink-0" />
-              <span className="text-xs sm:text-sm">Deadline: {new Date(item.deadline).toLocaleDateString()}</span>
-            </div>
-          </div>
+      {/* Type Badge */}
+      <div className="mb-4">
+        <span className={`inline-block px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm border ${
+          item.type === 'project' 
+            ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 border-purple-500/30 text-purple-300'
+            : item.type === 'hackathon'
+            ? 'bg-gradient-to-r from-green-500/20 to-emerald-500/20 border-green-500/30 text-green-300'
+            : 'bg-gradient-to-r from-blue-500/20 to-indigo-500/20 border-blue-500/30 text-blue-300'
+        }`}>
+          {item.type === 'project' ? 'Research Project' : item.type.charAt(0).toUpperCase() + item.type.slice(1)}
+        </span>
+      </div>
 
-          <div className="space-y-3 sm:space-y-4">
-            <div className="flex flex-wrap gap-1 sm:gap-2">
-              {item.skills.map((skill, skillIndex) => (
-                <Badge key={skillIndex} variant="secondary" className="text-xs">
-                  {skill}
-                </Badge>
-              ))}
-            </div>
+      {/* Description */}
+      <p className="text-neutral-300 mb-4 sm:mb-6 leading-relaxed flex-grow text-sm sm:text-base line-clamp-3">
+        {item.description}
+      </p>
 
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleApply(item)}
-              className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold py-2 sm:py-3 px-4 sm:px-6 rounded-lg sm:rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40 text-sm sm:text-base"
+      {/* Skills */}
+      <div className="mb-4 sm:mb-6">
+        <h4 className="text-white font-semibold mb-2 sm:mb-3 text-sm sm:text-base">Required Skills:</h4>
+        <div className="flex flex-wrap gap-1.5 sm:gap-2">
+          {item.skills.slice(0, 4).map((skill, skillIndex) => (
+            <span 
+              key={skillIndex}
+              className="bg-neutral-700/50 border border-neutral-600/50 text-neutral-300 px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm"
             >
-              {item.type === 'project' ? 'Apply Now' : 'Register'}
-            </motion.button>
-          </div>
+              {skill}
+            </span>
+          ))}
+          {item.skills.length > 4 && (
+            <span className="bg-neutral-700/50 border border-neutral-600/50 text-neutral-400 px-2 sm:px-3 py-1 rounded-lg text-xs sm:text-sm">
+              +{item.skills.length - 4} more
+            </span>
+          )}
         </div>
-      </ModernCard>
+      </div>
+
+      {/* Project Details */}
+      <div className="space-y-2 mb-4 sm:mb-6">
+        <div className="flex items-center space-x-2 text-neutral-400">
+          <Clock className="w-4 h-4 flex-shrink-0" />
+          <span className="text-xs sm:text-sm">Duration: {item.duration}</span>
+        </div>
+        {item.location && (
+          <div className="flex items-center space-x-2 text-neutral-400">
+            <MapPin className="w-4 h-4 flex-shrink-0" />
+            <span className="text-xs sm:text-sm">{item.location}</span>
+          </div>
+        )}
+        {item.stipend && (
+          <div className="flex items-center space-x-2 text-green-400">
+            <DollarSign className="w-4 h-4 flex-shrink-0" />
+            <span className="text-xs sm:text-sm font-semibold">{item.stipend}</span>
+          </div>
+        )}
+        <div className="flex items-center space-x-2 text-orange-400">
+          <Calendar className="w-4 h-4 flex-shrink-0" />
+          <span className="text-xs sm:text-sm">Deadline: {new Date(item.deadline).toLocaleDateString()}</span>
+        </div>
+        {item.views !== undefined && (
+          <div className="flex items-center space-x-2 text-neutral-500">
+            <User className="w-4 h-4 flex-shrink-0" />
+            <span className="text-xs sm:text-sm">{item.views} views</span>
+          </div>
+        )}
+      </div>
+
+      {/* Apply Button */}
+      <motion.button
+        whileHover={{ scale: 1.02 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={() => handleApply(item)}
+        className="w-full py-2.5 sm:py-3 font-semibold transition-all duration-300 text-sm sm:text-base bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white rounded-xl shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40"
+      >
+        {item.type === 'project' ? 'Apply Now' : 'Register'}
+      </motion.button>
+
+      {/* Glow effect */}
+      <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-cyan-400/5 via-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
     </motion.div>
   );
 
