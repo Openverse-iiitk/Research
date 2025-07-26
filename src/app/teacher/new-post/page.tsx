@@ -5,7 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Plus, X, Save, Eye } from "lucide-react";
 import { useEffect } from "react";
-import { createPost } from "@/lib/data-store";
+import { createPost } from "@/lib/project-api-wrapper";
 
 interface NewPostForm {
   title: string;
@@ -80,7 +80,7 @@ export default function NewPost() {
       const deadline = new Date();
       deadline.setDate(deadline.getDate() + 30);
 
-      // Create the post
+      // Create the post using API wrapper
       const newPost = await createPost({
         title: formData.title,
         description: formData.description,

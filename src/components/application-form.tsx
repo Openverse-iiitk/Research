@@ -7,7 +7,7 @@ import { Button } from "./ui/button";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { createApplication, validatePDFFile } from "@/lib/data-store";
+import { createApplication, validatePDFFile } from "@/lib/project-api-wrapper";
 
 interface FormData {
   name: string;
@@ -85,16 +85,16 @@ const ApplicationFormContent: React.FC = () => {
 
       // Validate resume file if provided
       if (formData.resume) {
-        const isValidPDF = await validatePDFFile(formData.resume);
-        if (!isValidPDF) {
-          throw new Error('Please upload a valid PDF file under 2MB');
+        const validation = validatePDFFile(formData.resume);
+        if (!validation.isValid) {
+          throw new Error(validation.error || 'Invalid file');
         }
       }
 
       // Parse skills from comma-separated string
       const skillsArray = formData.skills.split(',').map(skill => skill.trim()).filter(skill => skill.length > 0);
 
-      // Create application
+      // Create application using API wrapper
       const application = await createApplication({
         studentEmail: user?.email || formData.email,
         studentName: formData.name,

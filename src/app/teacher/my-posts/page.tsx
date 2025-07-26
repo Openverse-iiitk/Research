@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Eye, Users, Edit, Trash2, Calendar, MapPin } from "lucide-react";
-import { getPostsByTeacher, deletePost, type TeacherPost } from "@/lib/data-store";
+import { getPostsByTeacher, deletePost, type TeacherPost } from "@/lib/project-api-wrapper";
 
 const StatusBadge: React.FC<{ status: TeacherPost['status'] }> = ({ status }) => {
   const getStatusConfig = (status: TeacherPost['status']) => {
@@ -58,28 +58,31 @@ export default function MyPosts() {
     }
 
     // Load teacher's posts
-    if (user?.email) {
+    if (user?.id) {
       const loadPosts = async () => {
         try {
+          // Get posts for this teacher using the API wrapper
           const teacherPosts = await getPostsByTeacher(user.email);
-          console.log('Loaded teacher posts:', teacherPosts);
           setPosts(teacherPosts);
         } catch (error) {
           console.error('Error loading teacher posts:', error);
           setPosts([]);
         }
-      };
-      
-      loadPosts();
+      };      loadPosts();
     }
   }, [isLoggedIn, user, router]);
 
   const handleDeletePost = async (postId: string) => {
     if (confirm('Are you sure you want to delete this post?')) {
-      const success = deletePost(postId);
-      if (success) {
-        setPosts(posts.filter(post => post.id !== postId));
-      } else {
+      try {
+        const success = await deletePost(postId);
+        if (success) {
+          setPosts(posts.filter(post => post.id !== postId));
+        } else {
+          alert('Failed to delete post');
+        }
+      } catch (error) {
+        console.error('Error deleting post:', error);
         alert('Failed to delete post');
       }
     }

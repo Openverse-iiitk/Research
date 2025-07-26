@@ -3,7 +3,6 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase, isValidEmailDomain, validateEmailDomain } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { syncUserToLocalStorage } from "@/lib/data-store";
 
 // Helper function to get the correct URL for different environments
 const getURL = () => {
@@ -185,7 +184,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           is_active: true
         };
         setUser(basicUser);
-        syncUserToLocalStorage(basicUser);
         return;
       }
 
@@ -204,9 +202,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           is_active: data.is_active
         };
         setUser(userData);
-        
-        // Sync to localStorage for compatibility with data-store
-        syncUserToLocalStorage(userData);
       }
     } catch (error) {
       console.error('Error in fetchUserProfile:', error);
@@ -281,9 +276,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           is_active: data.is_active
         };
         setUser(userData);
-        
-        // Sync to localStorage for compatibility with data-store
-        syncUserToLocalStorage(userData);
       }
     } catch (error) {
       console.error('Error in createUserFromAuth:', error);
