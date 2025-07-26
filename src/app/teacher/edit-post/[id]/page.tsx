@@ -1,12 +1,12 @@
 "use client";
 import React from "react";
-import { Suspense } from "react";
+import { Suspense, use } from "react";
 import { TeacherPostForm } from "@/components/teacher-post-form";
 
 interface EditPostPageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 function EditPostContent({ postId }: { postId: string }) {
@@ -14,7 +14,7 @@ function EditPostContent({ postId }: { postId: string }) {
 }
 
 export default function EditPostPage({ params }: EditPostPageProps) {
-  const { id } = params;
+  const { id } = use(params);
 
   return (
     <Suspense fallback={
