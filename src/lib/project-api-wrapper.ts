@@ -4,6 +4,7 @@ import { Database } from './supabase';
 
 // Frontend types that match data-store.ts
 export interface TeacherPost {
+  outcome: string;
   id: string;
   title: string;
   description: string;
@@ -70,7 +71,8 @@ function convertApiProjectToTeacherPost(apiProject: ApiProject): TeacherPost {
     stipend: apiProject.stipend || undefined,
     deadline: apiProject.deadline,
     applications: [], // Load separately if needed
-    views: apiProject.views
+    views: apiProject.views,
+    outcome: apiProject.outcome || ''
   };
 }
 
@@ -110,6 +112,7 @@ function convertTeacherPostToApiProject(post: Omit<TeacherPost, 'id' | 'createdD
     department: post.department,
     deadline: post.deadline,
     stipend: post.stipend,
+    outcome: post.outcome,
     tags: [], // Projects don't have tags in current schema
     views: 0
   };
@@ -171,6 +174,19 @@ export async function getPostsByTeacher(teacherEmail: string): Promise<TeacherPo
   }
 }
 
+export async function getPostById(postId: string): Promise<TeacherPost | null> {
+  try {
+    const apiProject = await projectAPI.getById(postId);
+    if (apiProject) {
+      return convertApiProjectToTeacherPost(apiProject);
+    }
+    return null;
+  } catch (error) {
+    console.error('Error fetching post by ID:', error);
+    return null;
+  }
+}
+
 export async function createPost(post: Omit<TeacherPost, 'id' | 'createdDate' | 'applications' | 'views'>): Promise<TeacherPost | null> {
   try {
     // Get the author's user ID
@@ -205,6 +221,7 @@ export async function updatePost(postId: string, updates: Partial<TeacherPost>):
     if (updates.status !== undefined) apiUpdates.status = updates.status;
     if (updates.deadline !== undefined) apiUpdates.deadline = updates.deadline;
     if (updates.stipend !== undefined) apiUpdates.stipend = updates.stipend;
+    if (updates.outcome !== undefined) apiUpdates.outcome = updates.outcome;
     
     const result = await projectAPI.update(postId, apiUpdates);
     return result ? convertApiProjectToTeacherPost(result) : null;

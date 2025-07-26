@@ -129,11 +129,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 'teacher':
         return '/teacher';
       case 'student':
-        return '/'; // Students go to main page with opportunities
+        return '/projects'; // Students go to projects page to find opportunities
       case 'admin':
         return '/teacher'; // Admins can access teacher dashboard
       default:
-        return '/';
+        return '/projects';
     }
   };
 

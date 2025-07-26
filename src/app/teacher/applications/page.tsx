@@ -5,6 +5,7 @@ import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, User, Calendar, Mail, Phone, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react";
 import { getApplicationsByTeacher, updateApplicationStatus, type StudentApplication } from "@/lib/project-api-wrapper";
+import { supabase } from "@/lib/supabase";
 
 const StatusBadge: React.FC<{ status: StudentApplication['status'] }> = ({ status }) => {
   const getStatusConfig = (status: StudentApplication['status']) => {
@@ -126,27 +127,39 @@ function ApplicationsContent() {
     }
   };
 
-  const handleDownloadResume = (application: StudentApplication) => {
+  const handleDownloadResume = async (application: StudentApplication) => {
     try {
-      if (application.resumeFile && application.resumeFile instanceof File) {
-        // Create a download link for the file
-        const url = URL.createObjectURL(application.resumeFile);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = application.resumeFileName || `${application.studentName}_resume.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } else if (application.resumeFileName) {
-        // If file object is not available but filename exists, show message
-        alert(`Resume file "${application.resumeFileName}" was uploaded but cannot be downloaded due to browser limitations. In a real application, this would download from the server.`);
-      } else {
+      if (!application.resumeFileName) {
         alert('No resume file available');
+        return;
       }
+
+      // Use the new download API
+      const response = await fetch(`/api/download/resume?applicationId=${application.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to download resume');
+      }
+
+      // Create download link
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = application.resumeFileName || `${application.studentName}_resume.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Error downloading resume:', error);
-      alert('Failed to download resume file. The file may have been corrupted during storage.');
+      alert(`Failed to download resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 

@@ -35,8 +35,11 @@ export const Navbar = () => {
   const { isLoggedIn, user, signOut } = useAuth();
 
   // Determine which nav items to show based on current page
-  const isProjectsPage = pathname?.startsWith('/projects') || pathname?.startsWith('/login') || pathname?.startsWith('/my-applications') || pathname?.startsWith('/teacher') || pathname?.startsWith('/blog') || pathname?.startsWith('/apply');
-  const navItems = isProjectsPage ? projectsNavItems : homeNavItems;
+  const isProjectsPage = pathname?.startsWith('/projects') || pathname?.startsWith('/login') || pathname?.startsWith('/my-applications') || pathname?.startsWith('/teacher') || pathname?.startsWith('/apply');
+  const isBlogPage = pathname?.startsWith('/blog');
+  
+  // Use home nav items for blog pages to match home navbar
+  const navItems = (isProjectsPage && !isBlogPage) ? projectsNavItems : homeNavItems;
 
   const handleLogout = async () => {
     await signOut();

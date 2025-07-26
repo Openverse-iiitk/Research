@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS projects (
   department TEXT NOT NULL,
   deadline DATE NOT NULL,
   stipend TEXT,
+  outcome TEXT,
   views INTEGER DEFAULT 0,
   tags TEXT[] DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),

@@ -101,6 +101,7 @@ export interface Database {
           department: string;
           deadline: string;
           stipend?: string;
+          outcome?: string;
           views: number;
           tags: string[];
           created_at: string;
@@ -121,6 +122,7 @@ export interface Database {
           department: string;
           deadline: string;
           stipend?: string;
+          outcome?: string;
           views?: number;
           tags?: string[];
         };
@@ -134,6 +136,7 @@ export interface Database {
           status?: 'draft' | 'active' | 'closed';
           deadline?: string;
           stipend?: string;
+          outcome?: string;
           views?: number;
           tags?: string[];
           updated_at?: string;
