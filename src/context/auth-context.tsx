@@ -214,19 +214,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Creating user from auth:', authUser.email);
       
+      // Determine role based on email format
+      const emailPrefix = authUser.email?.split('@')[0] || '';
+      const hasNumberBeforeAt = /\d/.test(emailPrefix);
+      const defaultRole = hasNumberBeforeAt ? 'student' : 'teacher';
+      
       // Check if this is one of our test users
       let userData: any = {
         id: authUser.id,
         email: authUser.email,
         username: authUser.email?.split('@')[0] || 'user',
         name: authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-        role: 'student',
+        role: defaultRole,
         department: 'Computer Science',
         email_verified: Boolean(authUser.email_confirmed_at),
         is_active: true
       };
 
-      // Match with existing test users
+      // Match with existing test users (override default role if needed)
       if (authUser.email === 'student.test@iiitkottayam.ac.in') {
         userData = {
           ...userData,

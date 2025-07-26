@@ -70,12 +70,12 @@ export const Hero = () => {
       
       <Heading
         as="h1"
-        className="text-3xl sm:text-4xl md:text-6xl lg:text-8xl font-semibold max-w-7xl mx-auto text-center mt-6 relative z-10 py-6 leading-tight px-4"
+        className="text-white text-3xl sm:text-4xl md:text-6xl lg:text-8xl font-semibold max-w-7xl mx-auto text-center mt-6 relative z-10 py-6 leading-tight px-4"
       >
         Bridge the Gap Between <Cover>Research Dreams</Cover> and Reality
       </Heading>
       
-      <Subheading className="text-center mt-2 md:mt-6 text-sm sm:text-base md:text-xl text-muted max-w-4xl mx-auto relative z-10 leading-relaxed px-4">
+      <Subheading className="text-white text-center mt-2 md:mt-6 text-sm sm:text-base md:text-xl max-w-4xl mx-auto relative z-10 leading-relaxed px-4">
         Despite IIIT Kottayam being a premier research institute, talented students remain unaware of exciting opportunities while dedicated faculty struggle to find passionate collaborators. 
         <br className="hidden sm:block" />
         <span className="text-cyan-400 font-semibold">It's time to change that.</span>

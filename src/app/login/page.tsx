@@ -7,7 +7,7 @@ import { Vortex } from "@/components/ui/vortex";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 
 function LoginContent() {
-  const { signInWithGoogle, isLoggedIn, user } = useAuth();
+  const { signInWithGoogle, signInWithEmail, isLoggedIn, user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState("");
@@ -127,8 +127,16 @@ function LoginContent() {
     setError('');
 
     try {
-      // TODO: Implement email/password authentication with Supabase
-      setError('Email/password authentication is not yet implemented. Please use Google Sign-In.');
+      if (loginMode === 'signin') {
+        // Sign in with email/password
+        const result = await signInWithEmail(formData.email, formData.password);
+        if (!result.success) {
+          setError(result.error || 'Failed to sign in');
+        }
+      } else {
+        // Sign up - not implemented yet
+        setError('Email/password signup is not yet implemented. Please use Google Sign-In.');
+      }
     } catch (error) {
       setError('Authentication failed. Please try again.');
     } finally {
