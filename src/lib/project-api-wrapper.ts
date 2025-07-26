@@ -1,6 +1,7 @@
 // Project and Application API wrapper to replace data-store localStorage usage
 import { projectAPI, applicationAPI, userAPI } from './api';
 import { Database } from './supabase';
+import { supabase } from './supabase';
 
 // Frontend types that match data-store.ts
 export interface TeacherPost {
@@ -189,22 +190,45 @@ export async function getPostById(postId: string): Promise<TeacherPost | null> {
 
 export async function createPost(post: Omit<TeacherPost, 'id' | 'createdDate' | 'applications' | 'views'>): Promise<TeacherPost | null> {
   try {
-    // Get the author's user ID
-    const author = await userAPI.getByEmail(post.authorEmail);
-    if (!author) {
-      throw new Error('Author not found');
+    // Get the current session for authentication
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      throw new Error('No authentication session found');
     }
-    
-    const apiData = convertTeacherPostToApiProject(post, author.id);
-    const result = await projectAPI.create(apiData);
-    
-    if (result) {
-      return convertApiProjectToTeacherPost(result);
+
+    // Use the API route instead of direct Supabase call to handle authentication
+    const response = await fetch('/api/projects', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        title: post.title,
+        description: post.description,
+        requirements: post.requirements,
+        duration: post.duration,
+        location: post.location,
+        max_students: post.maxStudents,
+        status: post.status,
+        deadline: post.deadline,
+        stipend: post.stipend,
+        outcome: post.outcome,
+        department: post.department,
+        tags: []
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to create post');
     }
-    return null;
+
+    const { project } = await response.json();
+    return convertApiProjectToTeacherPost(project);
   } catch (error) {
     console.error('Error creating post:', error);
-    return null;
+    throw error; // Re-throw the error so it can be handled by the calling function
   }
 }
 

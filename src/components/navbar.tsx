@@ -39,7 +39,7 @@ export const Navbar = () => {
   const isBlogPage = pathname?.startsWith('/blog');
   const isTeacherPage = pathname?.startsWith('/teacher');
   
-  // Use home nav items for blog pages and teacher pages to match home navbar
+  // Use home nav items for blog pages and teacher pages, but let teachers access projects too
   const navItems = (isProjectsPage && !isBlogPage && !isTeacherPage) ? projectsNavItems : homeNavItems;
 
   const handleLogout = async () => {

@@ -301,17 +301,39 @@ export const Projects = () => {
             Discover amazing research projects, hackathons, and conferences to advance your academic journey.
           </p>
 
-          {/* My Applications Button for Students */}
-          {isLoggedIn && user?.role === 'student' && (
-            <div className="flex justify-center mb-6">
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => router.push('/my-applications')}
-                className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40"
-              >
-                My Applications
-              </motion.button>
+          {/* Action Buttons for Logged-in Users */}
+          {isLoggedIn && (
+            <div className="flex justify-center mb-6 gap-4">
+              {user?.role === 'student' && (
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => router.push('/my-applications')}
+                  className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-400 hover:to-pink-500 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-purple-500/25 hover:shadow-purple-500/40"
+                >
+                  My Applications
+                </motion.button>
+              )}
+              {user?.role === 'teacher' && (
+                <>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => router.push('/teacher/my-posts')}
+                    className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40"
+                  >
+                    My Posts
+                  </motion.button>
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => router.push('/teacher/new-post')}
+                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 shadow-lg shadow-green-500/25 hover:shadow-green-500/40"
+                  >
+                    Create Post
+                  </motion.button>
+                </>
+              )}
             </div>
           )}
 

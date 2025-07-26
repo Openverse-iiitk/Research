@@ -382,16 +382,13 @@ export const TeacherPostForm: React.FC<TeacherPostFormProps> = ({ postId }) => {
                 <label className="block text-sm font-medium text-neutral-300 mb-2">
                   Application Deadline *
                 </label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    value={formData.deadline}
-                    onChange={(e) => handleInputChange('deadline', e.target.value)}
-                    className="w-full px-4 py-3 bg-neutral-700/50 border border-neutral-600 rounded-xl text-white focus:border-cyan-500 focus:outline-none transition-colors"
-                    required
-                  />
-                  <Calendar className="absolute right-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5 pointer-events-none" />
-                </div>
+                <input
+                  type="date"
+                  value={formData.deadline}
+                  onChange={(e) => handleInputChange('deadline', e.target.value)}
+                  className="w-full px-4 py-3 bg-neutral-700/50 border border-neutral-600 rounded-xl text-white focus:border-cyan-500 focus:outline-none transition-colors"
+                  required
+                />
               </div>
 
               <div>

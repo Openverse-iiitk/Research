@@ -59,6 +59,8 @@ export async function POST(request: NextRequest) {
       deadline, 
       stipend, 
       status = 'draft',
+      outcome,
+      department,
       tags 
     } = body;
 
@@ -101,11 +103,12 @@ export async function POST(request: NextRequest) {
         max_students: max_students || 1,
         deadline,
         stipend,
+        outcome,
         status,
         author_id: user.id,
         author_email: userProfile.email,
         author_name: userProfile.name,
-        department: userProfile.department || 'Unknown',
+        department: department || userProfile.department || 'Unknown',
         tags: tags || []
       })
       .select()
