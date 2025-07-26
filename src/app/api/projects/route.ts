@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 // GET /api/projects - Get all active projects
 export async function GET(request: NextRequest) {
   try {
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const { searchParams } = new URL(request.url);
     const author = searchParams.get('author');
     const status = searchParams.get('status') || 'active';
@@ -49,6 +54,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('Received project creation request:', body);
+    
     const { 
       title, 
       description, 
@@ -71,9 +78,21 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.substring(7);
+    
+    // Create a Supabase client with the anon key for RLS
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+    });
+
+    // Verify the user token
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
+      console.error('Auth error:', authError);
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -85,6 +104,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (profileError || !userProfile) {
+      console.error('Profile error:', profileError);
       return NextResponse.json({ error: 'User profile not found' }, { status: 404 });
     }
 
@@ -92,25 +112,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Only teachers can create projects' }, { status: 403 });
     }
 
+    const projectData = {
+      title,
+      description,
+      requirements: requirements || [],
+      duration,
+      location,
+      max_students: max_students || 1,
+      deadline,
+      stipend,
+      outcome: outcome || null,
+      status,
+      author_id: user.id,
+      author_email: userProfile.email,
+      author_name: userProfile.name,
+      department: department || userProfile.department || 'Unknown',
+      tags: tags || []
+    };
+
+    console.log('Inserting project data:', projectData);
+
     const { data, error } = await supabase
       .from('projects')
-      .insert({
-        title,
-        description,
-        requirements: requirements || [],
-        duration,
-        location,
-        max_students: max_students || 1,
-        deadline,
-        stipend,
-        outcome,
-        status,
-        author_id: user.id,
-        author_email: userProfile.email,
-        author_name: userProfile.name,
-        department: department || userProfile.department || 'Unknown',
-        tags: tags || []
-      })
+      .insert(projectData)
       .select()
       .single();
 
@@ -119,6 +143,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    console.log('Successfully created project:', data);
     return NextResponse.json({ project: data }, { status: 201 });
   } catch (error) {
     console.error('Unexpected error:', error);
