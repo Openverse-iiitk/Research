@@ -155,6 +155,7 @@ export const BlogPostForm: React.FC<BlogPostFormProps> = ({ postId }) => {
       }
 
       let result = null;
+      let supabaseError = null;
 
       if (isEditing && postId) {
         // Update existing post
@@ -167,23 +168,27 @@ export const BlogPostForm: React.FC<BlogPostFormProps> = ({ postId }) => {
         });
       } else {
         // Create new post
-        result = await blogAPI.create({
-          title: formData.title.trim(),
-          content: formData.content.trim(),
-          excerpt: formData.excerpt.trim(),
-          tags: formData.tags,
-          published: formData.published,
-          author_id: user.id,
-          author_name: user.email.split('@')[0],
-          author_email: user.email,
-          read_time: Math.ceil(formData.content.length / 200) // Estimate read time
-        });
+        try {
+          result = await blogAPI.create({
+            title: formData.title.trim(),
+            content: formData.content.trim(),
+            excerpt: formData.excerpt.trim(),
+            tags: formData.tags,
+            published: formData.published,
+            author_id: user.id,
+            author_name: user.email.split('@')[0],
+            author_email: user.email,
+            read_time: Math.ceil(formData.content.length / 200)
+          });
+        } catch (e: any) {
+          supabaseError = e?.message || JSON.stringify(e);
+        }
       }
 
       if (result) {
         router.push('/blog');
       } else {
-        throw new Error(`Failed to ${isEditing ? 'update' : 'create'} blog post`);
+        throw new Error(`Failed to ${isEditing ? 'update' : 'create'} blog post${supabaseError ? ': ' + supabaseError : ''}`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
