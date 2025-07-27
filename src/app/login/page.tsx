@@ -158,17 +158,15 @@ function LoginContent() {
   };
 
   return (
-    <div className="min-h-screen w-full relative overflow-hidden">
-      {/* Vortex Background */}
+    <div className="w-[calc(100%-4rem)] mx-auto rounded-md h-screen overflow-hidden">
       <Vortex
-        backgroundColor="#000"
+        backgroundColor="black"
         rangeY={800}
         particleCount={500}
-        baseHue={180} // Cyan/Blue base
+        baseHue={120}
         className="flex items-center flex-col justify-center px-2 md:px-10 py-4 w-full h-full"
       >
-        {/* Content */}
-        <div className="relative z-20 min-h-screen flex flex-col items-center justify-center px-4 w-full">
+        <div className="relative z-20 flex flex-col items-center justify-center px-4 w-full h-full">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
