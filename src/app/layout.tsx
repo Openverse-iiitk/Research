@@ -5,8 +5,6 @@ import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import { AuthProvider } from "@/context/auth-context";
 
-import { SmoothCursor } from "@/components/ui/smooth-cursor";
-
 const inter = Inter({
   subsets: ["latin"],
   display: "swap",
@@ -26,7 +24,6 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-charcoal antialiased min-h-screen text-white`}>
-  <SmoothCursor />
         <AuthProvider>
           <Navbar />
           {children}

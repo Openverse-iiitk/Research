@@ -401,12 +401,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('OAuth flow starting...');
 
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      // Set a timeout for the OAuth initiation
+      const oauthPromise = supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${getURL()}auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('OAuth initiation timed out')), 10000); // 10 second timeout
+      });
+
+      const { data, error } = await Promise.race([oauthPromise, timeoutPromise]) as any;
 
       if (error) {
         console.error('OAuth initiation error:', error);
@@ -417,9 +428,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true };
     } catch (error: any) {
       console.error('Google sign-in error:', error);
+      
+      if (error.message?.includes('timeout')) {
+        return { 
+          success: false, 
+          error: 'Google sign-in request timed out. Please try again.' 
+        };
+      }
+      
       return { 
         success: false, 
-        error: error.message || 'Failed to sign in with Google' 
+        error: error.message || 'Failed to sign in with Google. Please try again.' 
       };
     }
   };
@@ -464,21 +483,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { success: false, error: domainError };
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Set a timeout for the auth request to prevent hanging
+      const authPromise = supabase.auth.signInWithPassword({
         email: email,
         password: password
       });
 
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Authentication request timed out')), 15000); // 15 second timeout
+      });
+
+      const { data, error } = await Promise.race([authPromise, timeoutPromise]) as any;
+
       if (error) {
+        console.error('Auth error details:', error);
         throw error;
       }
 
-      return { success: true };
+      if (data?.session) {
+        console.log('Email sign-in successful');
+        return { success: true };
+      } else {
+        console.error('No session returned from auth');
+        return { success: false, error: 'Authentication failed - no session created' };
+      }
     } catch (error: any) {
       console.error('Email sign-in error:', error);
+      
+      // Handle specific error types
+      if (error.message?.includes('timeout')) {
+        return { 
+          success: false, 
+          error: 'Authentication request timed out. Please try again.' 
+        };
+      }
+      
+      if (error.message?.includes('Invalid login credentials')) {
+        return { 
+          success: false, 
+          error: 'Invalid email or password.' 
+        };
+      }
+      
+      if (error.message?.includes('Email not confirmed')) {
+        return { 
+          success: false, 
+          error: 'Please check your email and click the confirmation link before signing in.' 
+        };
+      }
+      
       return { 
         success: false, 
-        error: error.message || 'Failed to sign in' 
+        error: error.message || 'Failed to sign in. Please try again.' 
       };
     }
   };
