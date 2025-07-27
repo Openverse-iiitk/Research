@@ -3,7 +3,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, User, Calendar, Mail, Phone, FileText, CheckCircle, XCircle, Clock, Download } from "lucide-react";
+import { ArrowLeft, User, Calendar, Mail, Phone, FileText, CheckCircle, XCircle, Clock, Download, Eye } from "lucide-react";
 import { getApplicationsByTeacher, updateApplicationStatus, type StudentApplication } from "@/lib/project-api-wrapper";
 import { supabase } from "@/lib/supabase";
 
@@ -130,14 +130,7 @@ function ApplicationsContent() {
   const handleDownloadResume = async (application: StudentApplication) => {
     try {
       if (!application.resumeFileName) {
-        alert('No resume file available for this application');
-        return;
-      }
-
-      // Get current session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        alert('Authentication required. Please log in again.');
+        alert('No resume file available');
         return;
       }
 
@@ -145,7 +138,7 @@ function ApplicationsContent() {
       const response = await fetch(`/api/download/resume?applicationId=${application.id}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
         },
       });
 
@@ -164,11 +157,55 @@ function ApplicationsContent() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
-      console.log('Resume downloaded successfully');
     } catch (error) {
       console.error('Error downloading resume:', error);
       alert(`Failed to download resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  };
+
+  const handleViewResume = async (application: StudentApplication) => {
+    try {
+      if (!application.resumeFileName) {
+        alert('No resume file available');
+        return;
+      }
+
+      // Use the download API to get the file and open it in a new tab
+      const response = await fetch(`/api/download/resume?applicationId=${application.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to view resume');
+      }
+
+      // Create blob URL and open in new tab
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      
+      // Open in new tab
+      const newWindow = window.open(url, '_blank');
+      if (!newWindow) {
+        // Fallback to download if popup blocked
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = application.resumeFileName || `${application.studentName}_resume.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+      
+      // Clean up the URL after a delay to allow the browser to load it
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+    } catch (error) {
+      console.error('Error viewing resume:', error);
+      alert(`Failed to view resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -204,6 +241,21 @@ function ApplicationsContent() {
 
       {/* Applications List */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Applications Summary */}
+        {filteredApplications.length > 0 && (
+          <div className="mb-6 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
+            <div className="flex items-center justify-between text-sm text-gray-300">
+              <div className="flex items-center space-x-6">
+                <span>Total Applications: <span className="text-white font-semibold">{filteredApplications.length}</span></span>
+                <span>With Resume: <span className="text-blue-400 font-semibold">{filteredApplications.filter(app => app.resumeFileName).length}</span></span>
+                <span>Pending: <span className="text-yellow-400 font-semibold">{filteredApplications.filter(app => app.status === 'pending').length}</span></span>
+                <span>Accepted: <span className="text-green-400 font-semibold">{filteredApplications.filter(app => app.status === 'accepted').length}</span></span>
+                <span>Rejected: <span className="text-red-400 font-semibold">{filteredApplications.filter(app => app.status === 'rejected').length}</span></span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-6">
           {filteredApplications.length === 0 ? (
             <div className="text-center py-12">
@@ -245,28 +297,12 @@ function ApplicationsContent() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
                       <div>
                         <h4 className="text-sm font-semibold text-gray-400 mb-2">Academic Details:</h4>
                         <div className="space-y-1 text-sm text-gray-300">
                           <p>Year: {application.year}</p>
                           <p>GPA: {application.gpa}/10</p>
-                        </div>
-                      </div>
-                      <div>
-                        <h4 className="text-sm font-semibold text-gray-400 mb-2">Resume:</h4>
-                        <div className="text-sm">
-                          {(application.resumeFile || application.resumeFileName) ? (
-                            <div className="flex items-center space-x-2 text-green-400">
-                              <FileText className="w-4 h-4" />
-                              <span>Available</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center space-x-2 text-gray-500">
-                              <FileText className="w-4 h-4" />
-                              <span>Not provided</span>
-                            </div>
-                          )}
                         </div>
                       </div>
                       <div>
@@ -290,23 +326,35 @@ function ApplicationsContent() {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2">
                         {(application.resumeFile || application.resumeFileName) && (
-                          <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => handleDownloadResume(application)}
-                            className="flex items-center space-x-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium border border-blue-500/30"
-                            title="Download Resume"
-                          >
-                            <Download className="w-4 h-4" />
-                            <span>View Resume</span>
-                          </motion.button>
+                          <div className="flex items-center space-x-2">
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleViewResume(application)}
+                              className="flex items-center space-x-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium"
+                              title="View Resume in Browser"
+                            >
+                              <Eye className="w-4 h-4" />
+                              <span>View Resume</span>
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleDownloadResume(application)}
+                              className="flex items-center space-x-2 px-3 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-colors text-sm font-medium"
+                              title="Download Resume"
+                            >
+                              <Download className="w-4 h-4" />
+                              <span>Download</span>
+                            </motion.button>
+                          </div>
                         )}
                         {!(application.resumeFile || application.resumeFileName) && (
                           <div className="flex items-center space-x-2 px-3 py-2 bg-gray-600/20 text-gray-400 rounded-lg text-sm">
                             <FileText className="w-4 h-4" />
-                            <span>No Resume</span>
+                            <span>No resume uploaded</span>
                           </div>
                         )}
                       </div>
