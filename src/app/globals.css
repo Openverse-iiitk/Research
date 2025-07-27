@@ -55,6 +55,11 @@
 body {
   background: var(--charcoal);
   font-family: Inter, Arial, Helvetica, sans-serif;
+  cursor: none !important;
+}
+
+button, a, input, textarea, select, [role="button"], [tabindex] {
+  cursor: none !important;
 }
 
 @layer utilities {

@@ -370,7 +370,7 @@ const ApplicationFormContent: React.FC = () => {
               {/* Portfolio Google Drive Link */}
               <div>
                 <label className="block text-white font-semibold mb-3 text-sm sm:text-base">
-                  Portfolio/Projects Google Drive Link <span className="text-neutral-400">(Optional)</span>
+                  Portfolio/Projects Link <span className="text-neutral-400">(Optional)</span>
                 </label>
                 <div className="relative">
                   <ExternalLink className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
