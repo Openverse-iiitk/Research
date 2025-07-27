@@ -32,7 +32,25 @@ export async function GET(request: NextRequest) {
       }
     );
     
-    await supabase.auth.exchangeCodeForSession(code);
+    try {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+      
+      if (error) {
+        console.error('OAuth callback error:', error);
+        // Redirect to login with error
+        return NextResponse.redirect(new URL('/login?error=oauth_callback_failed', request.url));
+      }
+
+      if (data?.session?.user) {
+        console.log('OAuth callback successful for user:', data.session.user.email);
+        
+        // Add a small delay to allow the auth state change to propagate
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } catch (error) {
+      console.error('OAuth callback exception:', error);
+      return NextResponse.redirect(new URL('/login?error=oauth_callback_failed', request.url));
+    }
   }
 
   // Ensure the redirect path is internal and safe

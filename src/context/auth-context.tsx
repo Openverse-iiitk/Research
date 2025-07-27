@@ -59,6 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [isProcessingAuth, setIsProcessingAuth] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -75,6 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
         
         setSession(session);
+        setCurrentSessionId(session?.access_token || null);
         
         if (session?.user) {
           console.log('Fetching user profile for session user:', session.user.email);
@@ -88,6 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isMounted) {
           setSession(null);
           setUser(null);
+          setCurrentSessionId(null);
         }
       } finally {
         if (isMounted) {
@@ -99,32 +103,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     getInitialSession();
 
-    // Listen for auth changes
+    // Listen for auth changes with race condition prevention
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change:', event, session ? 'Session exists' : 'No session');
         
-        if (!isMounted) {
+        if (!isMounted || isProcessingAuth) {
+          console.log('Skipping auth change - not mounted or already processing');
           return;
         }
         
-        // Skip processing if we haven't finished initialization
-        if (!isInitialized) {
-          console.log('Skipping auth change during initialization');
+        // Skip if this is the same session we already processed
+        const newSessionId = session?.access_token || null;
+        if (newSessionId === currentSessionId && event !== 'SIGNED_OUT') {
+          console.log('Skipping duplicate session processing');
           return;
         }
         
-        setSession(session);
+        setIsProcessingAuth(true);
+        setCurrentSessionId(newSessionId);
         
-        if (session?.user) {
-          console.log('Auth change: Fetching user profile for:', session.user.email);
-          await fetchUserProfile(session.user.id);
-        } else {
-          console.log('Auth change: No user, clearing state');
-          setUser(null);
+        try {
+          setSession(session);
+          
+          if (session?.user) {
+            console.log('Auth change: Fetching user profile for:', session.user.email);
+            await fetchUserProfile(session.user.id);
+          } else {
+            console.log('Auth change: No user, clearing state');
+            setUser(null);
+          }
+        } catch (error) {
+          console.error('Error processing auth state change:', error);
+        } finally {
+          if (isMounted) {
+            setIsLoading(false);
+            setIsProcessingAuth(false);
+          }
         }
-        
-        setIsLoading(false);
       }
     );
 
@@ -132,7 +148,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isMounted = false;
       subscription.unsubscribe();
     };
-  }, [isInitialized]);
+  }, []); // Remove isInitialized dependency to prevent loops
 
   // Handle post-login redirects based on user role
   useEffect(() => {
@@ -177,16 +193,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('Looking up user profile for:', authUser.user.email, 'with auth ID:', userId);
 
-      // Try to find user by email first (more reliable)
-      const { data, error } = await supabase
+      // Try to find user by auth ID first (most reliable)
+      let { data, error } = await supabase
         .from('users')
         .select('*')
-        .eq('email', authUser.user.email)
+        .eq('id', userId)
         .single();
 
+      // If not found by ID, try by email
+      if (error?.code === 'PGRST116') {
+        const { data: emailData, error: emailError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('email', authUser.user.email)
+          .single();
+        
+        data = emailData;
+        error = emailError;
+      }
+
       if (error) {
-        console.error('Error fetching user profile by email:', error);
-        console.log('User email:', authUser.user.email);
+        console.error('Error fetching user profile:', error);
         
         // If user doesn't exist in custom table, create them
         if (error.code === 'PGRST116') {
@@ -244,6 +271,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Creating user from auth:', authUser.email);
       
+      // Check if user already exists to prevent duplicate creation
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', authUser.id)
+        .single();
+      
+      if (existingUser) {
+        console.log('User already exists, updating state');
+        const userData = {
+          id: existingUser.id,
+          email: existingUser.email,
+          username: existingUser.username,
+          role: existingUser.role,
+          name: existingUser.name,
+          department: existingUser.department,
+          phone: existingUser.phone,
+          profile_image_url: existingUser.profile_image_url,
+          email_verified: existingUser.email_verified,
+          is_active: existingUser.is_active
+        };
+        setUser(userData);
+        return;
+      }
+      
       // Determine role based on email format (numbers in prefix = student, no numbers = teacher)
       const emailPrefix = authUser.email?.split('@')[0] || '';
       const hasNumberBeforeAt = /\d/.test(emailPrefix);
@@ -285,19 +337,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
       }
 
+      // Use upsert to handle race conditions
       const { data, error } = await supabase
         .from('users')
-        .insert(userData)
+        .upsert(userData, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
+        })
         .select()
         .single();
 
       if (error) {
-        console.error('Error creating user:', error);
+        console.error('Error creating/updating user:', error);
+        
+        // If upsert failed, try to fetch the user that might have been created by another process
+        const { data: fallbackUser } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', authUser.id)
+          .single();
+          
+        if (fallbackUser) {
+          console.log('Found user created by another process');
+          const userData = {
+            id: fallbackUser.id,
+            email: fallbackUser.email,
+            username: fallbackUser.username,
+            role: fallbackUser.role,
+            name: fallbackUser.name,
+            department: fallbackUser.department,
+            phone: fallbackUser.phone,
+            profile_image_url: fallbackUser.profile_image_url,
+            email_verified: fallbackUser.email_verified,
+            is_active: fallbackUser.is_active
+          };
+          setUser(userData);
+        }
         return;
       }
 
       if (data) {
-        console.log('User created successfully:', data);
+        console.log('User created/updated successfully:', data);
         const userData = {
           id: data.id,
           email: data.email,

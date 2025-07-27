@@ -85,62 +85,7 @@ CREATE TABLE IF NOT EXISTS blog_posts (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create posts table
-CREATE TABLE IF NOT EXISTS posts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  title TEXT NOT NULL,
-  description TEXT NOT NULL,
-  requirements TEXT[] DEFAULT '{}',
-  duration TEXT NOT NULL,
-  location TEXT NOT NULL,
-  max_students INTEGER DEFAULT 1,
-  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'closed')),
-  author_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  author_email TEXT NOT NULL,
-  author_name TEXT NOT NULL,
-  department TEXT NOT NULL,
-  deadline DATE NOT NULL,
-  stipend TEXT,
-  views INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
 
--- Create applications table
-CREATE TABLE IF NOT EXISTS applications (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  student_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  student_email TEXT NOT NULL,
-  student_name TEXT NOT NULL,
-  student_phone TEXT NOT NULL,
-  student_year TEXT NOT NULL,
-  student_gpa TEXT NOT NULL,
-  post_id UUID REFERENCES posts(id) ON DELETE CASCADE,
-  post_title TEXT NOT NULL,
-  teacher_email TEXT NOT NULL,
-  skills TEXT NOT NULL,
-  reason TEXT NOT NULL,
-  resume_url TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected')),
-  applied_date TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
--- Create blog_posts table
-CREATE TABLE IF NOT EXISTS blog_posts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  title TEXT NOT NULL,
-  content TEXT NOT NULL,
-  excerpt TEXT NOT NULL,
-  author_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  author_email TEXT NOT NULL,
-  author_name TEXT NOT NULL,
-  tags TEXT[] DEFAULT '{}',
-  published BOOLEAN DEFAULT FALSE,
-  read_time INTEGER DEFAULT 1,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
 
 -- Enable Row Level Security
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -148,40 +93,42 @@ ALTER TABLE projects ENABLE ROW LEVEL SECURITY;
 ALTER TABLE applications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE blog_posts ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies for users table
+-- Create optimized RLS policies for users table
 CREATE POLICY "Users can view all profiles" ON users FOR SELECT USING (true);
-CREATE POLICY "Users can update own profile" ON users FOR UPDATE USING (auth.uid()::text = id::text);
-CREATE POLICY "Users can insert own profile" ON users FOR INSERT WITH CHECK (auth.uid()::text = id::text);
+CREATE POLICY "Users can update own profile" ON users FOR UPDATE USING ((SELECT auth.uid())::text = id::text);
+CREATE POLICY "Users can insert own profile" ON users FOR INSERT WITH CHECK ((SELECT auth.uid())::text = id::text);
 
--- Create RLS policies for projects table
-CREATE POLICY "Anyone can view published projects" ON projects FOR SELECT USING (status = 'active');
-CREATE POLICY "Teachers can view own projects" ON projects FOR SELECT USING (author_id::text = auth.uid()::text);
-CREATE POLICY "Teachers can create projects" ON projects FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM users WHERE id::text = auth.uid()::text AND role = 'teacher')
-  AND author_id::text = auth.uid()::text
+-- Create optimized RLS policies for projects table (consolidated SELECT policies)
+CREATE POLICY "Projects SELECT policy" ON projects FOR SELECT USING (
+  status = 'active' OR author_id::text = (SELECT auth.uid())::text
 );
-CREATE POLICY "Teachers can update own projects" ON projects FOR UPDATE USING (author_id::text = auth.uid()::text);
-CREATE POLICY "Teachers can delete own projects" ON projects FOR DELETE USING (author_id::text = auth.uid()::text);
+CREATE POLICY "Teachers can create projects" ON projects FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM users WHERE id::text = (SELECT auth.uid())::text AND role = 'teacher')
+  AND author_id::text = (SELECT auth.uid())::text
+);
+CREATE POLICY "Teachers can update own projects" ON projects FOR UPDATE USING (author_id::text = (SELECT auth.uid())::text);
+CREATE POLICY "Teachers can delete own projects" ON projects FOR DELETE USING (author_id::text = (SELECT auth.uid())::text);
 
--- Create RLS policies for applications table
-CREATE POLICY "Students can view own applications" ON applications FOR SELECT USING (student_id::text = auth.uid()::text);
-CREATE POLICY "Teachers can view applications to their projects" ON applications FOR SELECT USING (
-  EXISTS (SELECT 1 FROM projects WHERE id = applications.project_id AND author_id::text = auth.uid()::text)
+-- Create optimized RLS policies for applications table (consolidated SELECT policies)
+CREATE POLICY "Applications SELECT policy" ON applications FOR SELECT USING (
+  student_id::text = (SELECT auth.uid())::text OR
+  EXISTS (SELECT 1 FROM projects WHERE id = applications.project_id AND author_id::text = (SELECT auth.uid())::text)
 );
 CREATE POLICY "Students can create applications" ON applications FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM users WHERE id::text = auth.uid()::text AND role = 'student')
-  AND student_id::text = auth.uid()::text
+  EXISTS (SELECT 1 FROM users WHERE id::text = (SELECT auth.uid())::text AND role = 'student')
+  AND student_id::text = (SELECT auth.uid())::text
 );
 CREATE POLICY "Teachers can update application status" ON applications FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM projects WHERE id = applications.project_id AND author_id::text = auth.uid()::text)
+  EXISTS (SELECT 1 FROM projects WHERE id = applications.project_id AND author_id::text = (SELECT auth.uid())::text)
 );
 
--- Create RLS policies for blog_posts table
-CREATE POLICY "Anyone can view published blog posts" ON blog_posts FOR SELECT USING (published = true);
-CREATE POLICY "Authors can view own blog posts" ON blog_posts FOR SELECT USING (author_id::text = auth.uid()::text);
-CREATE POLICY "Users can create blog posts" ON blog_posts FOR INSERT WITH CHECK (author_id::text = auth.uid()::text);
-CREATE POLICY "Authors can update own blog posts" ON blog_posts FOR UPDATE USING (author_id::text = auth.uid()::text);
-CREATE POLICY "Authors can delete own blog posts" ON blog_posts FOR DELETE USING (author_id::text = auth.uid()::text);
+-- Create optimized RLS policies for blog_posts table (consolidated SELECT policies)
+CREATE POLICY "Blog posts SELECT policy" ON blog_posts FOR SELECT USING (
+  published = true OR author_id::text = (SELECT auth.uid())::text
+);
+CREATE POLICY "Users can create blog posts" ON blog_posts FOR INSERT WITH CHECK (author_id::text = (SELECT auth.uid())::text);
+CREATE POLICY "Authors can update own blog posts" ON blog_posts FOR UPDATE USING (author_id::text = (SELECT auth.uid())::text);
+CREATE POLICY "Authors can delete own blog posts" ON blog_posts FOR DELETE USING (author_id::text = (SELECT auth.uid())::text);
 
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
