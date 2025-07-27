@@ -1,13 +1,13 @@
 "use client";
 import React, { useState, Suspense } from "react";
 import { motion } from "framer-motion";
-import { Upload, User, Mail, Hash, FileText, Send, ArrowLeft } from "lucide-react";
+import { ExternalLink, User, Mail, Hash, FileText, Send, ArrowLeft } from "lucide-react";
 import { ModernCard } from "./ui/modern-card";
 import { Button } from "./ui/button";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
-import { createApplication, validatePDFFile } from "@/lib/project-api-wrapper";
+import { createApplication } from "@/lib/project-api-wrapper";
 
 interface FormData {
   name: string;
@@ -17,7 +17,8 @@ interface FormData {
   gpa: string;
   skills: string;
   reason: string;
-  resume: File | null;
+  resumeLink: string;
+  portfolioLink: string;
 }
 
 const ApplicationFormContent: React.FC = () => {
@@ -35,7 +36,8 @@ const ApplicationFormContent: React.FC = () => {
     gpa: "",
     skills: "",
     reason: "",
-    resume: null
+    resumeLink: "",
+    portfolioLink: ""
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,11 +63,14 @@ const ApplicationFormContent: React.FC = () => {
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] || null;
-    setFormData(prev => ({
-      ...prev,
-      resume: file
-    }));
+    // This function is no longer needed, but keeping for now to avoid breaking changes
+  };
+
+  const validateGoogleDriveLink = (url: string): boolean => {
+    if (!url) {
+      return true; // Optional field
+    }
+    return url.includes('drive.google.com') || url.includes('docs.google.com');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -83,12 +88,13 @@ const ApplicationFormContent: React.FC = () => {
         throw new Error('Project ID is missing');
       }
 
-      // Validate resume file if provided
-      if (formData.resume) {
-        const validation = validatePDFFile(formData.resume);
-        if (!validation.isValid) {
-          throw new Error(validation.error || 'Invalid file');
-        }
+      // Validate Google Drive links if provided
+      if (formData.resumeLink && !validateGoogleDriveLink(formData.resumeLink)) {
+        throw new Error('Resume link must be a valid Google Drive or Google Docs link');
+      }
+
+      if (formData.portfolioLink && !validateGoogleDriveLink(formData.portfolioLink)) {
+        throw new Error('Portfolio link must be a valid Google Drive or Google Docs link');
       }
 
       // Parse skills from comma-separated string
@@ -105,7 +111,8 @@ const ApplicationFormContent: React.FC = () => {
         skills: skillsArray,
         gpa: parseFloat(formData.gpa),
         year: formData.year,
-        resumeFile: formData.resume || undefined
+        resumeLink: formData.resumeLink,
+        portfolioLink: formData.portfolioLink
       });
 
       if (application && application.id) {
@@ -339,48 +346,53 @@ const ApplicationFormContent: React.FC = () => {
                 </div>
               </div>
 
-              {/* Resume Upload */}
+              {/* Resume/CV Google Drive Link */}
               <div>
                 <label className="block text-white font-semibold mb-3 text-sm sm:text-base">
-                  Resume/CV <span className="text-red-400">*</span>
+                  Resume/CV Google Drive Link <span className="text-neutral-400">(Optional)</span>
                 </label>
                 <div className="relative">
+                  <ExternalLink className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
                   <input
-                    type="file"
-                    onChange={handleFileChange}
-                    accept=".pdf,.doc,.docx"
-                    required
-                    className="hidden"
-                    id="resume-upload"
+                    type="url"
+                    name="resumeLink"
+                    value={formData.resumeLink}
+                    onChange={handleInputChange}
+                    className="w-full pl-12 pr-4 py-4 bg-neutral-800/50 border border-neutral-600 rounded-xl text-white placeholder-neutral-400 focus:border-cyan-500 focus:outline-none transition-colors text-sm sm:text-base"
+                    placeholder="https://drive.google.com/file/d/..."
                   />
-                  <label
-                    htmlFor="resume-upload"
-                    className="w-full p-6 border-2 border-dashed border-neutral-600 rounded-xl cursor-pointer hover:border-cyan-500 transition-colors flex flex-col items-center justify-center text-center"
-                  >
-                    <Upload className="w-8 h-8 text-neutral-400 mb-3" />
-                    {formData.resume ? (
-                      <span className="text-cyan-400 font-medium">
-                        {formData.resume.name}
-                      </span>
-                    ) : (
-                      <>
-                        <span className="text-white font-medium mb-1">
-                          Click to upload your resume
-                        </span>
-                        <span className="text-neutral-400 text-sm">
-                          PDF, DOC, or DOCX files only
-                        </span>
-                      </>
-                    )}
-                  </label>
                 </div>
+                <p className="text-neutral-400 text-xs mt-2">
+                  Share your resume via Google Drive with view access for anyone with the link
+                </p>
+              </div>
+
+              {/* Portfolio Google Drive Link */}
+              <div>
+                <label className="block text-white font-semibold mb-3 text-sm sm:text-base">
+                  Portfolio/Projects Google Drive Link <span className="text-neutral-400">(Optional)</span>
+                </label>
+                <div className="relative">
+                  <ExternalLink className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-5 h-5" />
+                  <input
+                    type="url"
+                    name="portfolioLink"
+                    value={formData.portfolioLink}
+                    onChange={handleInputChange}
+                    className="w-full pl-12 pr-4 py-4 bg-neutral-800/50 border border-neutral-600 rounded-xl text-white placeholder-neutral-400 focus:border-cyan-500 focus:outline-none transition-colors text-sm sm:text-base"
+                    placeholder="https://drive.google.com/folder/d/..."
+                  />
+                </div>
+                <p className="text-neutral-400 text-xs mt-2">
+                  Share your portfolio, projects, or additional documents via Google Drive
+                </p>
               </div>
 
               {/* Submit Button */}
               <div className="pt-6">
                 <motion.button
                   type="submit"
-                  disabled={isSubmitting || !formData.name || !formData.phone || !formData.email || !formData.year || !formData.gpa || !formData.skills || !formData.reason || !formData.resume}
+                  disabled={isSubmitting || !formData.name || !formData.phone || !formData.email || !formData.year || !formData.gpa || !formData.skills || !formData.reason}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-lg py-4 rounded-xl transition-all duration-300 flex items-center justify-center shadow-lg shadow-cyan-500/25 hover:shadow-cyan-500/40"

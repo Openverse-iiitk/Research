@@ -3,7 +3,7 @@ import React, { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowLeft, User, Calendar, Mail, Phone, FileText, CheckCircle, XCircle, Clock, Download, Eye } from "lucide-react";
+import { ArrowLeft, User, Calendar, Mail, Phone, FileText, CheckCircle, XCircle, Clock, ExternalLink } from "lucide-react";
 import { getApplicationsByTeacher, updateApplicationStatus, type StudentApplication } from "@/lib/project-api-wrapper";
 import { supabase } from "@/lib/supabase";
 
@@ -127,86 +127,19 @@ function ApplicationsContent() {
     }
   };
 
-  const handleDownloadResume = async (application: StudentApplication) => {
-    try {
-      if (!application.resumeFileName) {
-        alert('No resume file available');
-        return;
-      }
-
-      // Use the download API
-      const response = await fetch(`/api/download/resume?applicationId=${application.id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to download resume');
-      }
-
-      // Create download link
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = application.resumeFileName || `${application.studentName}_resume.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Error downloading resume:', error);
-      alert(`Failed to download resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  const handleOpenGoogleDriveLink = (url: string) => {
+    if (url) {
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
 
-  const handleViewResume = async (application: StudentApplication) => {
-    try {
-      if (!application.resumeFileName) {
-        alert('No resume file available');
-        return;
-      }
+  const extractPortfolioLink = (coverLetter: string): string | null => {
+    const portfolioMatch = coverLetter.match(/Portfolio:\s*(https?:\/\/[^\s\n]+)/);
+    return portfolioMatch ? portfolioMatch[1] : null;
+  };
 
-      // Use the download API to get the file and open it in a new tab
-      const response = await fetch(`/api/download/resume?applicationId=${application.id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to view resume');
-      }
-
-      // Create blob URL and open in new tab
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      
-      // Open in new tab
-      const newWindow = window.open(url, '_blank');
-      if (!newWindow) {
-        // Fallback to download if popup blocked
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = application.resumeFileName || `${application.studentName}_resume.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      }
-      
-      // Clean up the URL after a delay to allow the browser to load it
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 1000);
-    } catch (error) {
-      console.error('Error viewing resume:', error);
-      alert(`Failed to view resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+  const getCleanCoverLetter = (coverLetter: string): string => {
+    return coverLetter.replace(/\n\nPortfolio:\s*https?:\/\/[^\s\n]+/, '');
   };
 
   if (!isLoggedIn || user?.role !== 'teacher') {
@@ -241,21 +174,6 @@ function ApplicationsContent() {
 
       {/* Applications List */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Applications Summary */}
-        {filteredApplications.length > 0 && (
-          <div className="mb-6 p-4 bg-gray-800/50 rounded-xl border border-gray-700">
-            <div className="flex items-center justify-between text-sm text-gray-300">
-              <div className="flex items-center space-x-6">
-                <span>Total Applications: <span className="text-white font-semibold">{filteredApplications.length}</span></span>
-                <span>With Resume: <span className="text-blue-400 font-semibold">{filteredApplications.filter(app => app.resumeFileName).length}</span></span>
-                <span>Pending: <span className="text-yellow-400 font-semibold">{filteredApplications.filter(app => app.status === 'pending').length}</span></span>
-                <span>Accepted: <span className="text-green-400 font-semibold">{filteredApplications.filter(app => app.status === 'accepted').length}</span></span>
-                <span>Rejected: <span className="text-red-400 font-semibold">{filteredApplications.filter(app => app.status === 'rejected').length}</span></span>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="space-y-6">
           {filteredApplications.length === 0 ? (
             <div className="text-center py-12">
@@ -322,41 +240,46 @@ function ApplicationsContent() {
 
                     <div className="mb-4">
                       <h4 className="text-sm font-semibold text-gray-400 mb-2">Cover Letter:</h4>
-                      <p className="text-gray-300 text-sm leading-relaxed">{application.coverLetter}</p>
+                      <p className="text-gray-300 text-sm leading-relaxed">{getCleanCoverLetter(application.coverLetter)}</p>
                     </div>
 
+                    {/* Google Drive Links Section */}
+                    {(application.resumeLink || extractPortfolioLink(application.coverLetter)) && (
+                      <div className="mb-4">
+                        <h4 className="text-sm font-semibold text-gray-400 mb-2">Documents & Links:</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {application.resumeLink && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleOpenGoogleDriveLink(application.resumeLink!)}
+                              className="inline-flex items-center px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium"
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Resume/CV
+                            </motion.button>
+                          )}
+                          {extractPortfolioLink(application.coverLetter) && (
+                            <motion.button
+                              whileHover={{ scale: 1.05 }}
+                              whileTap={{ scale: 0.95 }}
+                              onClick={() => handleOpenGoogleDriveLink(extractPortfolioLink(application.coverLetter)!)}
+                              className="inline-flex items-center px-3 py-2 bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 rounded-lg transition-colors text-sm font-medium"
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Portfolio
+                            </motion.button>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        {(application.resumeFile || application.resumeFileName) && (
-                          <div className="flex items-center space-x-2">
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => handleViewResume(application)}
-                              className="flex items-center space-x-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium"
-                              title="View Resume in Browser"
-                            >
-                              <Eye className="w-4 h-4" />
-                              <span>View Resume</span>
-                            </motion.button>
-                            <motion.button
-                              whileHover={{ scale: 1.05 }}
-                              whileTap={{ scale: 0.95 }}
-                              onClick={() => handleDownloadResume(application)}
-                              className="flex items-center space-x-2 px-3 py-2 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg transition-colors text-sm font-medium"
-                              title="Download Resume"
-                            >
-                              <Download className="w-4 h-4" />
-                              <span>Download</span>
-                            </motion.button>
-                          </div>
-                        )}
-                        {!(application.resumeFile || application.resumeFileName) && (
-                          <div className="flex items-center space-x-2 px-3 py-2 bg-gray-600/20 text-gray-400 rounded-lg text-sm">
-                            <FileText className="w-4 h-4" />
-                            <span>No resume uploaded</span>
-                          </div>
-                        )}
+                      <div className="text-xs text-gray-500">
+                        {application.resumeLink || extractPortfolioLink(application.coverLetter) ? 
+                          'Click links above to view documents in Google Drive' : 
+                          'No documents provided'
+                        }
                       </div>
 
                       {application.status === 'pending' && (

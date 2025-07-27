@@ -39,6 +39,8 @@ export interface StudentApplication {
   year: string;
   resumeFile?: File;
   resumeFileName?: string;
+  resumeLink?: string;
+  portfolioLink?: string;
 }
 
 export interface User {
@@ -93,7 +95,9 @@ function convertApiApplicationToStudentApplication(apiApp: ApiApplication): Stud
     gpa: apiApp.student_gpa,
     year: apiApp.student_year,
     resumeFile: undefined, // File objects don't persist
-    resumeFileName: apiApp.resume_url ? apiApp.resume_url.split('/').pop() : undefined
+    resumeFileName: apiApp.resume_url ? apiApp.resume_url.split('/').pop() : undefined,
+    resumeLink: apiApp.resume_url || undefined,
+    portfolioLink: undefined // TODO: Add portfolio_url field to database
   };
 }
 
@@ -354,9 +358,9 @@ export async function createApplication(application: Omit<StudentApplication, 'i
       project_title: application.projectTitle,
       teacher_id: project.author_id,
       teacher_email: project.author_email,
-      cover_letter: application.coverLetter,
+      cover_letter: application.coverLetter + (application.portfolioLink ? `\n\nPortfolio: ${application.portfolioLink}` : ''),
       skills: application.skills,
-      resume_url: undefined // File upload not implemented yet
+      resume_url: application.resumeLink // Use resumeLink for Google Drive link
     };
     
     const result = await applicationAPI.create(apiData);
