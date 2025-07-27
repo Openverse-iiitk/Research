@@ -265,7 +265,9 @@ export const createPost = async (post: Omit<TeacherPost, 'id' | 'createdDate' | 
 export const updatePost = (postId: string, updates: Partial<TeacherPost>): TeacherPost | null => {
   const posts = getAllPosts();
   const postIndex = posts.findIndex(post => post.id === postId);
-  if (postIndex === -1) return null;
+  if (postIndex === -1) {
+    return null;
+  }
   
   posts[postIndex] = { ...posts[postIndex], ...updates };
   localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
@@ -275,7 +277,9 @@ export const updatePost = (postId: string, updates: Partial<TeacherPost>): Teach
 export const deletePost = (postId: string): boolean => {
   const posts = getAllPosts();
   const filteredPosts = posts.filter(post => post.id !== postId);
-  if (filteredPosts.length === posts.length) return false;
+  if (filteredPosts.length === posts.length) {
+    return false;
+  }
   
   localStorage.setItem(POSTS_KEY, JSON.stringify(filteredPosts));
   return true;
@@ -347,6 +351,44 @@ export const createApplication = async (application: Omit<StudentApplication, 'i
       throw new Error('User or project not found');
     }
 
+    // Handle resume file upload if provided
+    let resumeUrl: string | null = null;
+    if (application.resumeFile) {
+      try {
+        // Get the auth token
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('Authentication required for file upload');
+        }
+
+        // Upload the resume file
+        const formData = new FormData();
+        formData.append('file', application.resumeFile);
+
+        const uploadResponse = await fetch('/api/upload/resume', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          const errorData = await uploadResponse.json();
+          throw new Error(errorData.error || 'Failed to upload resume');
+        }
+
+        const uploadResult = await uploadResponse.json();
+        resumeUrl = uploadResult.url;
+        console.log('Resume uploaded successfully:', resumeUrl);
+      } catch (uploadError) {
+        console.error('Error uploading resume:', uploadError);
+        // Don't fail the entire application submission if resume upload fails
+        // Just log the error and continue without the resume
+        console.warn('Continuing application submission without resume due to upload error');
+      }
+    }
+
     // Handle file storage - File objects can't be serialized to JSON
     // In a real application, files would be uploaded to a server
     // For demo purposes, we'll store the filename and note the limitation
@@ -371,7 +413,7 @@ export const createApplication = async (application: Omit<StudentApplication, 'i
       teacher_email: projectData.author_email,
       cover_letter: application.coverLetter,
       skills: application.skills,
-      resume_url: null, // Will be updated when file upload is implemented
+      resume_url: resumeUrl, // Now includes the actual uploaded file URL
       status: 'pending' as const
     };
 
@@ -423,7 +465,9 @@ export const createApplication = async (application: Omit<StudentApplication, 'i
 export const updateApplicationStatus = (applicationId: string, status: 'pending' | 'accepted' | 'rejected'): StudentApplication | null => {
   const applications = getAllApplications();
   const appIndex = applications.findIndex(app => app.id === applicationId);
-  if (appIndex === -1) return null;
+  if (appIndex === -1) {
+    return null;
+  }
   
   applications[appIndex].status = status;
   localStorage.setItem(APPLICATIONS_KEY, JSON.stringify(applications));
@@ -444,7 +488,9 @@ export const updateUser = (email: string, updates: Partial<User>): User | null =
   const parsedUsers: User[] = users ? JSON.parse(users) : [];
   const userIndex = parsedUsers.findIndex(user => user.email === email);
   
-  if (userIndex === -1) return null;
+  if (userIndex === -1) {
+    return null;
+  }
   
   parsedUsers[userIndex] = { ...parsedUsers[userIndex], ...updates };
   localStorage.setItem(USERS_KEY, JSON.stringify(parsedUsers));
