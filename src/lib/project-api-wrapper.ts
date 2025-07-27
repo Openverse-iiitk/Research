@@ -342,6 +342,42 @@ export async function createApplication(application: Omit<StudentApplication, 'i
     if (exists) {
       throw new Error('You have already applied to this project');
     }
+
+    // Upload resume if provided
+    let resumeUrl: string | undefined = undefined;
+    if (application.resumeFile) {
+      try {
+        // Get auth token
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) {
+          throw new Error('Not authenticated');
+        }
+
+        // Upload resume file
+        const formData = new FormData();
+        formData.append('file', application.resumeFile);
+
+        const uploadResponse = await fetch('/api/upload/resume', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: formData,
+        });
+
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          throw new Error(error.error || 'Failed to upload resume');
+        }
+
+        const uploadResult = await uploadResponse.json();
+        resumeUrl = uploadResult.url;
+      } catch (uploadError) {
+        console.warn('Resume upload failed:', uploadError);
+        // Don't fail the entire application if resume upload fails
+        // Just proceed without the resume
+      }
+    }
     
     const apiData: Database['public']['Tables']['applications']['Insert'] = {
       student_id: student.id,
@@ -356,7 +392,7 @@ export async function createApplication(application: Omit<StudentApplication, 'i
       teacher_email: project.author_email,
       cover_letter: application.coverLetter,
       skills: application.skills,
-      resume_url: undefined // File upload not implemented yet
+      resume_url: resumeUrl
     };
     
     const result = await applicationAPI.create(apiData);

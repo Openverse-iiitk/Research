@@ -130,15 +130,22 @@ function ApplicationsContent() {
   const handleDownloadResume = async (application: StudentApplication) => {
     try {
       if (!application.resumeFileName) {
-        alert('No resume file available');
+        alert('No resume file available for this application');
         return;
       }
 
-      // Use the new download API
+      // Get current session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        alert('Authentication required. Please log in again.');
+        return;
+      }
+
+      // Use the download API
       const response = await fetch(`/api/download/resume?applicationId=${application.id}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'Authorization': `Bearer ${session.access_token}`,
         },
       });
 
@@ -157,6 +164,8 @@ function ApplicationsContent() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      
+      console.log('Resume downloaded successfully');
     } catch (error) {
       console.error('Error downloading resume:', error);
       alert(`Failed to download resume: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -236,12 +245,28 @@ function ApplicationsContent() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                       <div>
                         <h4 className="text-sm font-semibold text-gray-400 mb-2">Academic Details:</h4>
                         <div className="space-y-1 text-sm text-gray-300">
                           <p>Year: {application.year}</p>
                           <p>GPA: {application.gpa}/10</p>
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-semibold text-gray-400 mb-2">Resume:</h4>
+                        <div className="text-sm">
+                          {(application.resumeFile || application.resumeFileName) ? (
+                            <div className="flex items-center space-x-2 text-green-400">
+                              <FileText className="w-4 h-4" />
+                              <span>Available</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center space-x-2 text-gray-500">
+                              <FileText className="w-4 h-4" />
+                              <span>Not provided</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div>
@@ -265,25 +290,24 @@ function ApplicationsContent() {
                     </div>
 
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center space-x-3">
                         {(application.resumeFile || application.resumeFileName) && (
                           <motion.button
                             whileHover={{ scale: 1.05 }}
                             whileTap={{ scale: 0.95 }}
                             onClick={() => handleDownloadResume(application)}
-                            className={`p-2 rounded-lg transition-colors ${
-                              application.resumeFile instanceof File 
-                                ? 'bg-blue-600/20 hover:bg-blue-600/30 text-blue-400' 
-                                : 'bg-gray-600/20 hover:bg-gray-600/30 text-gray-400'
-                            }`}
-                            title={
-                              application.resumeFile instanceof File 
-                                ? 'Download Resume' 
-                                : `Resume: ${application.resumeFileName || 'File available'} (Demo limitation: file cannot be downloaded)`
-                            }
+                            className="flex items-center space-x-2 px-3 py-2 bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 rounded-lg transition-colors text-sm font-medium border border-blue-500/30"
+                            title="Download Resume"
                           >
                             <Download className="w-4 h-4" />
+                            <span>View Resume</span>
                           </motion.button>
+                        )}
+                        {!(application.resumeFile || application.resumeFileName) && (
+                          <div className="flex items-center space-x-2 px-3 py-2 bg-gray-600/20 text-gray-400 rounded-lg text-sm">
+                            <FileText className="w-4 h-4" />
+                            <span>No Resume</span>
+                          </div>
                         )}
                       </div>
 
